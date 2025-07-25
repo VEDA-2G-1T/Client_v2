@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/resources">
+        <file>icons/camera_registration.png</file>
+        <file>icons/health_check.png</file>
+        <file>icons/settings.png</file>
+    </qresource>
+</RCC>

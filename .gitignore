@@ -1,0 +1,30 @@
+# Qt 관련 빌드 무시
+build*/
+*.user
+*.pro.user
+*.qmake.stash
+*.autosave
+*.moc
+*.obj
+*.o
+*.so
+*.a
+*.dll
+*.exe
+*.app
+*.log
+*.qrc.depends
+*.qrc.translations
+*.ts
+*.qm
+
+# CMake 관련 빌드 디렉토리 무시
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# 백업 및 기타 무시
+*.swp
+*.bak
+*.tmp
