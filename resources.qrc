@@ -3,5 +3,6 @@
         <file>icons/camera_registration.png</file>
         <file>icons/health_check.png</file>
         <file>icons/settings.png</file>
+        <file>icons/delete.png</file>
     </qresource>
 </RCC>
