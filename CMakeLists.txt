@@ -30,6 +30,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QtClientSSN_new-ui
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+        logitemwidget.h logitemwidget.cpp
     )
 else()
     if(ANDROID)

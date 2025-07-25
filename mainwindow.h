@@ -76,6 +76,9 @@ private:
 
     QSet<QString> healthCheckResponded;
 
+    QWidget *eventLogPanelWrapper;
+    QVBoxLayout *eventLogLayout;
+    QScrollArea *eventLogScroll;
 
     void addLogEntry(const QString &cameraName,
                      const QString &function,

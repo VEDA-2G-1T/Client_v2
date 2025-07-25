@@ -2,6 +2,7 @@
 #include "camerainfo.h"
 #include "cameraitemwidget.h"
 #include "cameraregistrationdialog.h"
+#include "logitemwidget.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -30,7 +31,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle("Smart SafetyNet");
-    resize(1560, 720);
+    resize(1460, 720);
 
     QWidget *central = new QWidget(this);
     QVBoxLayout *mainLayout = new QVBoxLayout(central);
@@ -50,7 +51,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     bodyLayout->addWidget(cameraListWrapper, 1);
     bodyLayout->addWidget(videoGridPanel, 3);
-    bodyLayout->addWidget(eventLogPanel, 2);
+    bodyLayout->addWidget(eventLogScroll, 2);
 
     mainLayout->addLayout(bodyLayout);
     setCentralWidget(central);
@@ -400,31 +401,33 @@ void MainWindow::setupVideoGrid() {
 }
 
 void MainWindow::setupEventLog() {
-    eventLogPanel = new QTableWidget(0, 3);
-    QStringList headers = {"Time", "Camera", "Event"};
-    eventLogPanel->setHorizontalHeaderLabels(headers);
-    eventLogPanel->horizontalHeader()->setStretchLastSection(true);
-    eventLogPanel->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    eventLogPanel->verticalHeader()->setVisible(false);
-    eventLogPanel->setFixedWidth(400);
-    eventLogPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    // ✅ 다크 테마 스타일 적용
-    eventLogPanel->setStyleSheet(R"(
-        QTableWidget {
-            background-color: #1e1e1e;
-            color: white;
-            gridline-color: #333;
-            selection-background-color: #444;
-        }
-        QHeaderView::section {
-            background-color: #2b2b2b;
-            color: white;
-            font-weight: bold;
-            padding: 4px;
-            border: 1px solid #444;
-        }
-    )");}
+    eventLogPanelWrapper = new QWidget();
+    eventLogPanelWrapper->setStyleSheet("background-color: #1e1e1e;");
+    eventLogPanelWrapper->setMinimumHeight(0);  // ✅ 추가
+    eventLogPanelWrapper->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);  // ✅ 추가
+
+    eventLogLayout = new QVBoxLayout(eventLogPanelWrapper);
+    eventLogLayout->setContentsMargins(0, 0, 0, 0);
+    eventLogLayout->setSpacing(0);
+
+    eventLogScroll = new QScrollArea();
+    eventLogScroll->setWidgetResizable(true);
+    eventLogScroll->setWidget(eventLogPanelWrapper);
+    eventLogScroll->setFixedWidth(200);
+    eventLogScroll->setAlignment(Qt::AlignTop);
+
+    eventLogScroll->setStyleSheet(R"(
+    QScrollArea {
+        background-color: #1e1e1e;
+        border: none;
+    }
+    QWidget {
+        background-color: #1e1e1e;
+    }
+)");
+}
+
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
     if (event->type() == QEvent::Resize) {
@@ -766,40 +769,15 @@ void MainWindow::addLogEntry(const QString &cameraName,
                              const QString &details,
                              const QString &ip)
 {
-    QString date = QDate::currentDate().toString("yyyy-MM-dd");
     QString time = QTime::currentTime().toString("HH:mm:ss");
 
-    int zone = -1;
-    for (int i = 0; i < cameraList.size(); ++i) {
-        if (cameraList[i].name == cameraName) {
-            zone = i + 1;
-            break;
+    LogItemWidget *logItem = new LogItemWidget(cameraName, event, time);
+    eventLogLayout->insertWidget(0, logItem);  // 맨 위에 추가
+
+    if (eventLogLayout->count() > 100) {
+        QLayoutItem *oldItem = eventLogLayout->takeAt(eventLogLayout->count() - 1);
+        if (oldItem && oldItem->widget()) {
+            delete oldItem->widget();
         }
     }
-
-    // ✅ 우측 실시간 로그 패널만 사용
-    int row = eventLogPanel->rowCount();
-    eventLogPanel->insertRow(0);  // 👈 맨 위에 추가
-    eventLogPanel->setItem(0, 0, new QTableWidgetItem(time));
-    eventLogPanel->setItem(0, 1, new QTableWidgetItem(cameraName));
-    eventLogPanel->setItem(0, 2, new QTableWidgetItem(event));
-    eventLogPanel->scrollToItem(eventLogPanel->item(0, 0));  // 👈 맨 위로 스크롤
-/*
-    // ✅ 전체 로그 저장
-    fullLogEntries.prepend({
-        cameraName,
-        function,
-        event,
-        imagePath,
-        details,
-        date,
-        time,
-        zone,
-        ip
-    });
-*/
-    // 🔁 필요 시 오래된 로그 제한
-    if (eventLogPanel->rowCount() > 100)
-        eventLogPanel->removeRow(0);  // 오래된 것 제거 (위에서부터)
 }
-
