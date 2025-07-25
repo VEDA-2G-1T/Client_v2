@@ -669,11 +669,12 @@ void MainWindow::onSocketMessageReceived(const QString &message)
     else if (type == "new_trespass") {
         QString ts = data["timestamp"].toString();
         int count = data["count"].toInt();
+        QString imagePath = data["image_path"].toString();  // ✅ 추가
 
         if (count > 0) {
-            QString event = QString("🌙 야간 침입 감지 (%1명)").arg(count);
+            QString event = QString("🚷 무단 침입 감지 (%1명)").arg(count);
             QString details = QString("감지 시각: %1 | 침입자 수: %2").arg(ts).arg(count);
-            addLogEntry(camera.name, "Night", event, "", details, camera.ip);
+            addLogEntry(camera.name, "Night", event, imagePath, details, camera.ip);  // ✅ 이미지 포함
         }
     }
 
@@ -770,14 +771,18 @@ void MainWindow::addLogEntry(const QString &cameraName,
                              const QString &ip)
 {
     QString time = QTime::currentTime().toString("HH:mm:ss");
+    QString imageUrl;
 
-    LogItemWidget *logItem = new LogItemWidget(cameraName, event, time);
-    eventLogLayout->insertWidget(0, logItem);  // 맨 위에 추가
+    if (!imagePath.isEmpty()) {
+        QString cleanPath = imagePath.startsWith("../") ? imagePath.mid(3) : imagePath;
+        imageUrl = QString("http://%1/%2").arg(ip, cleanPath);
+    }
+
+    LogItemWidget *logItem = new LogItemWidget(cameraName, event, time, imageUrl);
+    eventLogLayout->insertWidget(0, logItem);
 
     if (eventLogLayout->count() > 100) {
         QLayoutItem *oldItem = eventLogLayout->takeAt(eventLogLayout->count() - 1);
-        if (oldItem && oldItem->widget()) {
-            delete oldItem->widget();
-        }
+        if (oldItem && oldItem->widget()) delete oldItem->widget();
     }
 }

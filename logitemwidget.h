@@ -8,7 +8,10 @@
 class LogItemWidget : public QWidget {
     Q_OBJECT
 public:
-    explicit LogItemWidget(const QString &camera, const QString &event, const QString &time, QWidget *parent = nullptr);
-};
+    explicit LogItemWidget(const QString &camera,
+                           const QString &event,
+                           const QString &time,
+                           const QString &imageUrl = "",
+                           QWidget *parent = nullptr);};
 
 #endif // LOGITEMWIDGET_H
