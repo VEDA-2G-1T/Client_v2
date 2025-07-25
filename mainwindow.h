@@ -1,6 +1,8 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "cameraregistrationdialog.h"
+
 #include <QMainWindow>
 #include <QListWidget>
 #include <QTableWidget>

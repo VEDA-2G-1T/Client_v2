@@ -71,67 +71,6 @@ void MainWindow::setupTopBar() {
     });
     timer->start(1000);
 }
-/*
-void MainWindow::setupCameraList() {
-    cameraListWrapper = new QWidget();
-    QVBoxLayout *layout = new QVBoxLayout(cameraListWrapper);
-    cameraListWrapper->setStyleSheet("background-color: #2b2b2b;");
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-
-    // 🔘 상단 아이콘 버튼 3개
-    QHBoxLayout *iconLayout = new QHBoxLayout();
-    iconLayout->setSpacing(0);
-
-    auto createIconButton = [](const QString &iconPath, const QString &tooltip) -> QPushButton* {
-        QPushButton *btn = new QPushButton();
-        btn->setIcon(QIcon(iconPath));
-        btn->setIconSize(QSize(32, 32));               // 아이콘 크기 명확히
-        btn->setToolTip(tooltip);
-
-        btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        btn->setMinimumHeight(48);
-
-        btn->setStyleSheet(R"(
-            QPushButton {
-                background-color: #2b2b2b;
-                border: 1px solid white;
-            }
-            QPushButton:hover {
-                background-color: #f37321;
-            }
-        )");
-        return btn;
-    };
-
-    QPushButton *cameraButton = createIconButton(":/resources/icons/camera_registration.png", "카메라 등록");
-    QPushButton *settingsButton = createIconButton(":/resources/icons/settings.png", "설정");
-    QPushButton *healthButton = createIconButton(":/resources/icons/health_check.png", "헬시 체크");
-
-    iconLayout->addStretch();
-    iconLayout->addWidget(cameraButton);
-    iconLayout->addStretch();
-    iconLayout->addWidget(settingsButton);
-    iconLayout->addStretch();
-    iconLayout->addWidget(healthButton);
-    iconLayout->addStretch();
-
-    // 📋 카메라 리스트
-    cameraListPanel = new QListWidget();
-    cameraListPanel->addItem("Camera A");
-    cameraListPanel->addItem("Camera B");
-    cameraListPanel->addItem("Camera C");
-    cameraListPanel->setStyleSheet("background-color: #1e1e1e; color: white;");
-
-
-    cameraListPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-
-    layout->addLayout(iconLayout);
-    layout->addWidget(cameraListPanel);
-
-    cameraListWrapper->setFixedWidth(200);
-}
-*/
 
 void MainWindow::setupCameraList() {
     cameraListWrapper = new QWidget();
@@ -146,7 +85,7 @@ void MainWindow::setupCameraList() {
     iconLayout->setContentsMargins(0, 0, 0, 0);  // 여백 제거
 
     auto createIconButton = [](const QString &iconPath, const QString &tooltip) -> QPushButton* {
-        QPushButton *btn = new QPushButton();  // 아이콘 hover 범위 확장 위해 공백 추가
+        QPushButton *btn = new QPushButton();
         btn->setIcon(QIcon(iconPath));
         btn->setIconSize(QSize(32, 32));
         btn->setToolTip(tooltip);
@@ -166,20 +105,30 @@ void MainWindow::setupCameraList() {
         return btn;
     };
 
+    // ✅ 버튼 선언
     QPushButton *cameraButton = createIconButton(":/resources/icons/camera_registration.png", "카메라 등록");
     QPushButton *settingsButton = createIconButton(":/resources/icons/settings.png", "설정");
     QPushButton *healthButton = createIconButton(":/resources/icons/health_check.png", "헬시 체크");
 
+    // ✅ 연결: 카메라 등록 버튼 클릭 시 다이얼로그 띄우기
+    connect(cameraButton, &QPushButton::clicked, this, [=]() {
+        CameraRegistrationDialog dialog(this);
+        if (dialog.exec() == QDialog::Accepted) {
+            QString name = dialog.getCameraName();
+            QString ip = dialog.getCameraIP();
+            QString port = dialog.getCameraPort();
+            QString display = QString("%1 (%2:%3)").arg(name, ip, port);
+            cameraListPanel->addItem(display);
+        }
+    });
+
+    // 버튼 레이아웃에 추가
     iconLayout->addWidget(cameraButton);
     iconLayout->addWidget(settingsButton);
     iconLayout->addWidget(healthButton);
 
     // 📋 카메라 리스트
     cameraListPanel = new QListWidget();
-    cameraListPanel->addItem("Camera A");
-    cameraListPanel->addItem("Camera B");
-    cameraListPanel->addItem("Camera C");
-
     cameraListPanel->setStyleSheet(R"(
         QListWidget {
             background-color: #1e1e1e;
@@ -189,17 +138,13 @@ void MainWindow::setupCameraList() {
         QListWidget::item:selected {
             background-color: #2a82da;
         }
-        QPushButton:hover {
-                background-color: #f37321;
-            }
     )");
-
-    cameraListPanel->setFocusPolicy(Qt::NoFocus);  // 포커스 테두리 제거
+    cameraListPanel->setFocusPolicy(Qt::NoFocus);
     cameraListPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
+    // 전체 구성 정리
     layout->addLayout(iconLayout);
     layout->addWidget(cameraListPanel);
-
     cameraListWrapper->setFixedWidth(200);
 }
 
@@ -284,28 +229,3 @@ void MainWindow::setupEventLog() {
     eventLogPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     eventLogPanel->setStyleSheet("background-color: #1e1e1e; color: white;");
 }
-
-/*
-#include "mainwindow.h"
-#include <QPushButton>
-#include <QVBoxLayout>
-
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-{
-    setWindowTitle("Icon Button Test");
-    resize(300, 300);
-
-    QWidget *central = new QWidget(this);
-    QVBoxLayout *layout = new QVBoxLayout(central);
-
-    QPushButton *btn = new QPushButton();
-    btn->setIcon(QIcon(":/resources/icons/settings.png"));
-    btn->setIconSize(QSize(32, 32));
-    btn->setFixedSize(48, 48);
-    btn->setStyleSheet("background-color: #2b2b2b; border: 1px solid gray;");
-    layout->addWidget(btn, 0, Qt::AlignCenter);
-
-    setCentralWidget(central);
-}
-*/
