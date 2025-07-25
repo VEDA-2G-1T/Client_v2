@@ -9,6 +9,12 @@
 #include <QLabel>
 #include <QTimer>
 #include <QDateTime>
+#include <QMediaPlayer>
+#include <QVideoWidget>
+#include <QGraphicsView>
+#include <QGraphicsScene>
+#include <QGraphicsVideoItem>
+#include <QGraphicsTextItem>
 
 class MainWindow : public QMainWindow
 {
@@ -28,6 +34,8 @@ private:
     QWidget *topBar;
     QLabel *timeLabel;
 
+    QPair<int, int> findEmptyVideoSlot();
+
     // 📂 좌측 카메라 목록
     void setupCameraList();
     QListWidget *cameraListPanel;
@@ -36,6 +44,9 @@ private:
     // 🖼 중앙 영상 타일
     void setupVideoGrid();
     QWidget *videoGridPanel;
+
+    QVector<QMediaPlayer*> players;
+    QVector<QVideoWidget*> videoWidgets;
 
     // 📋 우측 이벤트 로그
     void setupEventLog();

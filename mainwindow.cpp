@@ -15,6 +15,7 @@
 #include <QVideoWidget>
 #include <QMediaPlayer>
 #include <QEvent>
+#include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -44,6 +45,27 @@ MainWindow::MainWindow(QWidget *parent)
 
     mainLayout->addLayout(bodyLayout);
     setCentralWidget(central);
+}
+
+QPair<int, int> MainWindow::findEmptyVideoSlot() {
+    QList<QPair<int, int>> reservedSlots = {
+        {0, 0}, {0, 1}, {0, 2},
+        {1, 0}, {2, 0}
+    };
+
+    QGridLayout *grid = qobject_cast<QGridLayout *>(videoGridPanel->layout());
+    if (!grid) return {-1, -1};
+
+    for (const QPair<int, int> &pos : reservedSlots) {
+        QLayoutItem *item = grid->itemAtPosition(pos.first, pos.second);
+        if (!item) return pos;
+
+        QWidget *widget = item->widget();
+        if (widget && widget->objectName() == "placeholder")
+            return pos;
+    }
+
+    return {-1, -1};
 }
 
 void MainWindow::setupTopBar() {
@@ -86,17 +108,15 @@ void MainWindow::setupCameraList() {
     // 🔘 상단 아이콘 버튼 3개
     QHBoxLayout *iconLayout = new QHBoxLayout();
     iconLayout->setSpacing(0);
-    iconLayout->setContentsMargins(0, 0, 0, 0);  // 여백 제거
+    iconLayout->setContentsMargins(0, 0, 0, 0);
 
     auto createIconButton = [](const QString &iconPath, const QString &tooltip) -> QPushButton* {
         QPushButton *btn = new QPushButton();
         btn->setIcon(QIcon(iconPath));
         btn->setIconSize(QSize(32, 32));
         btn->setToolTip(tooltip);
-
         btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         btn->setMinimumHeight(48);
-
         btn->setStyleSheet(R"(
             QPushButton {
                 background-color: #1e1e1e;
@@ -109,12 +129,10 @@ void MainWindow::setupCameraList() {
         return btn;
     };
 
-    // ✅ 버튼 선언
     QPushButton *cameraButton = createIconButton(":/resources/icons/camera_registration.png", "카메라 등록");
     QPushButton *settingsButton = createIconButton(":/resources/icons/settings.png", "설정");
     QPushButton *healthButton = createIconButton(":/resources/icons/health_check.png", "헬시 체크");
-
-    // ✅ 연결: 카메라 등록 버튼 클릭 시 다이얼로그 띄우기
+/*
     connect(cameraButton, &QPushButton::clicked, this, [=]() {
         CameraRegistrationDialog dialog(this);
         if (dialog.exec() == QDialog::Accepted) {
@@ -123,10 +141,134 @@ void MainWindow::setupCameraList() {
             QString port = dialog.getCameraPort();
             QString display = QString("%1 (%2:%3)").arg(name, ip, port);
             cameraListPanel->addItem(display);
+
+            QPair<int, int> pos = findEmptyVideoSlot();
+            if (pos.first == -1) {
+                QMessageBox::warning(this, "배치 불가", "모든 영상 슬롯이 사용 중입니다.");
+                return;
+            }
+
+            QGridLayout *grid = qobject_cast<QGridLayout *>(videoGridPanel->layout());
+            if (!grid) return;
+
+            QLayoutItem *existingItem = grid->itemAtPosition(pos.first, pos.second);
+            if (existingItem) {
+                QWidget *oldWidget = existingItem->widget();
+                if (oldWidget) {
+                    grid->removeWidget(oldWidget);
+                    delete oldWidget;
+                }
+            }
+
+            // ✅ 래퍼 위젯 생성
+            QWidget *tileWrapper = new QWidget();
+            tileWrapper->setFixedSize(320, 240);
+            tileWrapper->setStyleSheet("background-color: black;");
+
+            // ✅ 그래픽스 기반 구성
+            QGraphicsScene *scene = new QGraphicsScene(tileWrapper);
+            QGraphicsVideoItem *videoItem = new QGraphicsVideoItem();
+            videoItem->setSize(QSizeF(320, 240));
+            scene->addItem(videoItem);
+
+            // ✅ 라벨 추가
+            QGraphicsTextItem *labelItem = scene->addText(name);
+            labelItem->setDefaultTextColor(Qt::white);
+            labelItem->setZValue(1);
+            labelItem->setPos(320 - 60, 5);  // 오른쪽 상단
+
+            // ✅ 뷰어
+            QGraphicsView *view = new QGraphicsView(scene, tileWrapper);
+            view->setFixedSize(320, 240);
+            view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            view->setStyleSheet("border: none; background: black;");
+            view->setFrameStyle(QFrame::NoFrame);
+
+            // ✅ 플레이어
+            QMediaPlayer *player = new QMediaPlayer(this);
+            player->setVideoOutput(videoItem);
+            player->setSource(QUrl(QString("rtsps://%1:%2/processed").arg(ip, port)));
+            player->play();
+
+            players.append(player);  // 기존 QVector 활용 시
+            grid->addWidget(tileWrapper, pos.first, pos.second);
+        }
+    });
+*/
+
+    connect(cameraButton, &QPushButton::clicked, this, [=]() {
+        CameraRegistrationDialog dialog(this);
+        if (dialog.exec() == QDialog::Accepted) {
+            QString name = dialog.getCameraName();
+            QString ip = dialog.getCameraIP();
+            QString port = dialog.getCameraPort();
+            QString display = QString("%1 (%2:%3)").arg(name, ip, port);
+            cameraListPanel->addItem(display);
+
+            QPair<int, int> pos = findEmptyVideoSlot();
+            if (pos.first == -1) {
+                QMessageBox::warning(this, "배치 불가", "모든 영상 슬롯이 사용 중입니다.");
+                return;
+            }
+
+            QGridLayout *grid = qobject_cast<QGridLayout *>(videoGridPanel->layout());
+            if (!grid) return;
+
+            QLayoutItem *existingItem = grid->itemAtPosition(pos.first, pos.second);
+            if (existingItem) {
+                QWidget *oldWidget = existingItem->widget();
+                if (oldWidget) {
+                    grid->removeWidget(oldWidget);
+                    delete oldWidget;
+                }
+            }
+
+            // ✅ 래퍼 위젯 생성
+            QWidget *tileWrapper = new QWidget();
+            tileWrapper->setFixedSize(320, 240);
+            tileWrapper->setStyleSheet("background-color: black;");
+
+            // ✅ 그래픽스 기반 구성
+            QGraphicsScene *scene = new QGraphicsScene(tileWrapper);
+            QGraphicsVideoItem *videoItem = new QGraphicsVideoItem();
+            videoItem->setSize(QSizeF(320, 240));
+            scene->addItem(videoItem);
+
+            // ✅ 이름 라벨 + 검정 배경 박스
+            QGraphicsRectItem *labelBg = scene->addRect(0, 0, 0, 0, Qt::NoPen, QBrush(QColor(0, 0, 0, 180)));
+
+            QGraphicsTextItem *labelItem = scene->addText(name);
+            labelItem->setDefaultTextColor(Qt::white);
+            labelItem->setFont(QFont("Arial", 10, QFont::Bold));
+            labelItem->setZValue(2);  // 텍스트 위
+            labelBg->setZValue(1);    // 박스 뒤
+
+            QRectF textRect = labelItem->boundingRect();
+            labelBg->setRect(0, 0, textRect.width() + 10, textRect.height() + 4);  // padding 포함
+            labelBg->setPos(320 - textRect.width() - 14, 5);                       // 배경 위치
+            labelItem->setPos(320 - textRect.width() - 9, 7);                      // 텍스트 위치
+
+            // ✅ QGraphicsView로 장면 보여줌
+            QGraphicsView *view = new QGraphicsView(scene, tileWrapper);
+            view->setFixedSize(320, 240);
+            view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            view->setStyleSheet("border: none; background: black;");
+            view->setFrameStyle(QFrame::NoFrame);
+
+            // ✅ 플레이어 설정 및 실행
+            QMediaPlayer *player = new QMediaPlayer(this);
+            player->setVideoOutput(videoItem);
+            player->setSource(QUrl(QString("rtsps://%1:%2/processed").arg(ip, port)));
+            player->play();
+
+            players.append(player);
+            grid->addWidget(tileWrapper, pos.first, pos.second);
         }
     });
 
-    // 버튼 레이아웃에 추가
+    // 버튼 배치
     iconLayout->addWidget(cameraButton);
     iconLayout->addWidget(settingsButton);
     iconLayout->addWidget(healthButton);
@@ -180,6 +322,7 @@ void MainWindow::setupVideoGrid() {
 
             QString labelText = cameraLabels.value({row, col}, QString("(%1,%2)").arg(row).arg(col));
             QLabel *tile = new QLabel(labelText);
+            tile->setObjectName("placeholder");  // ✅ 자리 표시자임을 명시
             tile->setStyleSheet(R"(
                 background-color: black;
                 color: white;
