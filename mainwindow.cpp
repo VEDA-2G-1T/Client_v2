@@ -1,4 +1,7 @@
 #include "mainwindow.h"
+#include "camerainfo.h"
+#include "cameraitemwidget.h"
+#include "cameraregistrationdialog.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -16,6 +19,9 @@
 #include <QMediaPlayer>
 #include <QEvent>
 #include <QMessageBox>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QtWebSockets/QWebSocket>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -99,200 +105,307 @@ void MainWindow::setupTopBar() {
 }
 
 void MainWindow::setupCameraList() {
-    cameraListWrapper = new QWidget();
-    QVBoxLayout *layout = new QVBoxLayout(cameraListWrapper);
-    cameraListWrapper->setStyleSheet("background-color: #2b2b2b;");
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
+    if (!cameraListWrapper) {
+        cameraListWrapper = new QWidget();
+        cameraListWrapper->setFixedWidth(300);
+        cameraListWrapper->setStyleSheet("background-color: #2b2b2b;");
 
-    // 🔘 상단 아이콘 버튼 3개
-    QHBoxLayout *iconLayout = new QHBoxLayout();
-    iconLayout->setSpacing(0);
-    iconLayout->setContentsMargins(0, 0, 0, 0);
+        wrapperLayout = new QVBoxLayout(cameraListWrapper);
+        wrapperLayout->setContentsMargins(0, 0, 0, 0);
+        wrapperLayout->setSpacing(0);
 
-    auto createIconButton = [](const QString &iconPath, const QString &tooltip) -> QPushButton* {
-        QPushButton *btn = new QPushButton();
-        btn->setIcon(QIcon(iconPath));
-        btn->setIconSize(QSize(32, 32));
-        btn->setToolTip(tooltip);
-        btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        btn->setMinimumHeight(48);
-        btn->setStyleSheet(R"(
-            QPushButton {
-                background-color: #1e1e1e;
-                border: none;
-            }
-            QPushButton:hover {
-                background-color: #f37321;
-            }
-        )");
-        return btn;
-    };
+        // 상단 버튼 영역
+        QHBoxLayout *iconLayout = new QHBoxLayout();
+        iconLayout->setSpacing(0);
+        iconLayout->setContentsMargins(0, 0, 0, 0);
 
-    QPushButton *cameraButton = createIconButton(":/resources/icons/camera_registration.png", "카메라 등록");
-    QPushButton *settingsButton = createIconButton(":/resources/icons/settings.png", "설정");
-    QPushButton *healthButton = createIconButton(":/resources/icons/health_check.png", "헬시 체크");
-/*
-    connect(cameraButton, &QPushButton::clicked, this, [=]() {
-        CameraRegistrationDialog dialog(this);
-        if (dialog.exec() == QDialog::Accepted) {
-            QString name = dialog.getCameraName();
-            QString ip = dialog.getCameraIP();
-            QString port = dialog.getCameraPort();
-            QString display = QString("%1 (%2:%3)").arg(name, ip, port);
-            cameraListPanel->addItem(display);
+        auto createIconButton = [](const QString &iconPath, const QString &tooltip) -> QPushButton* {
+            QPushButton *btn = new QPushButton();
+            btn->setIcon(QIcon(iconPath));
+            btn->setIconSize(QSize(32, 32));
+            btn->setToolTip(tooltip);
+            btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+            btn->setMinimumHeight(48);
+            btn->setStyleSheet(R"(
+                QPushButton {
+                    background-color: #1e1e1e;
+                    border: none;
+                }
+                QPushButton:hover {
+                    background-color: #f37321;
+                }
+            )");
+            return btn;
+        };
 
-            QPair<int, int> pos = findEmptyVideoSlot();
-            if (pos.first == -1) {
-                QMessageBox::warning(this, "배치 불가", "모든 영상 슬롯이 사용 중입니다.");
-                return;
-            }
+        QPushButton *cameraButton = createIconButton(":/resources/icons/camera_registration.png", "카메라 등록");
+        QPushButton *settingsButton = createIconButton(":/resources/icons/settings.png", "설정");
+        QPushButton *healthButton = createIconButton(":/resources/icons/health_check.png", "헬시 체크");
 
-            QGridLayout *grid = qobject_cast<QGridLayout *>(videoGridPanel->layout());
-            if (!grid) return;
+        iconLayout->addWidget(cameraButton);
+        iconLayout->addWidget(settingsButton);
+        iconLayout->addWidget(healthButton);
+        wrapperLayout->addLayout(iconLayout);
 
-            QLayoutItem *existingItem = grid->itemAtPosition(pos.first, pos.second);
-            if (existingItem) {
-                QWidget *oldWidget = existingItem->widget();
-                if (oldWidget) {
+        // 리스트 영역
+        listContainer = new QWidget();
+        listLayout = new QVBoxLayout(listContainer);
+        listLayout->setContentsMargins(0, 0, 0, 0);
+        listLayout->setSpacing(2);
+
+        scrollArea = new QScrollArea();
+        scrollArea->setWidgetResizable(true);
+        scrollArea->setWidget(listContainer);
+        scrollArea->setStyleSheet("background-color: #1e1e1e;");
+        scrollArea->setFrameStyle(QFrame::NoFrame);
+        wrapperLayout->addWidget(scrollArea);
+        /*
+        // 등록 버튼 클릭 시 동작
+        connect(cameraButton, &QPushButton::clicked, this, [=]() {
+            CameraRegistrationDialog dialog(this);
+            if (dialog.exec() == QDialog::Accepted) {
+                QString name = dialog.getCameraName();
+                QString ip = dialog.getCameraIP();
+                QString port = dialog.getCameraPort();
+                CameraInfo newCam{name, ip, port};
+
+                cameraList.append(newCam);
+                qDebug() << "[등록] 새 카메라 추가:" << name << ip << port;
+
+                // ✅ 영상 타일 추가
+                QPair<int, int> pos = findEmptyVideoSlot();
+                if (pos.first == -1) {
+                    QMessageBox::warning(this, "배치 불가", "모든 영상 슬롯이 사용 중입니다.");
+                    return;
+                }
+
+                QGridLayout *grid = qobject_cast<QGridLayout *>(videoGridPanel->layout());
+                if (!grid) return;
+
+                QLayoutItem *existingItem = grid->itemAtPosition(pos.first, pos.second);
+                if (existingItem && existingItem->widget()) {
+                    QWidget *oldWidget = existingItem->widget();
                     grid->removeWidget(oldWidget);
                     delete oldWidget;
                 }
+
+                // 영상 출력 타일 생성
+                QWidget *tileWrapper = new QWidget();
+                tileWrapper->setFixedSize(320, 240);
+                tileWrapper->setStyleSheet("background-color: black;");
+
+                QGraphicsScene *scene = new QGraphicsScene(tileWrapper);
+                QGraphicsVideoItem *videoItem = new QGraphicsVideoItem();
+                videoItem->setSize(QSizeF(320, 240));
+                scene->addItem(videoItem);
+
+                QGraphicsTextItem *labelItem = scene->addText(name);
+                labelItem->setDefaultTextColor(Qt::white);
+                labelItem->setZValue(1);
+                labelItem->setPos(320 - 60, 5);
+
+                QGraphicsView *view = new QGraphicsView(scene, tileWrapper);
+                view->setFixedSize(320, 240);
+                view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                view->setStyleSheet("border: none; background: black;");
+                view->setFrameStyle(QFrame::NoFrame);
+
+                QMediaPlayer *player = new QMediaPlayer(this);
+                player->setVideoOutput(videoItem);
+                player->setSource(QUrl(QString("rtsps://%1:%2/processed").arg(ip, port)));
+                player->play();
+
+                players.append(player);
+                grid->addWidget(tileWrapper, pos.first, pos.second);
+
+                // ✅ 리스트 UI 갱신
+                refreshCameraListItems();
+                setupWebSocketConnections();
             }
+        });
+        */
+        /*
+        connect(cameraButton, &QPushButton::clicked, this, [=]() {
+            CameraRegistrationDialog dialog(this);
+            if (dialog.exec() == QDialog::Accepted) {
+                QString name = dialog.getCameraName();
+                QString ip = dialog.getCameraIP();
+                QString port = dialog.getCameraPort();
+                QString display = QString("%1 (%2:%3)").arg(name, ip, port);
 
-            // ✅ 래퍼 위젯 생성
-            QWidget *tileWrapper = new QWidget();
-            tileWrapper->setFixedSize(320, 240);
-            tileWrapper->setStyleSheet("background-color: black;");
+                QPair<int, int> pos = findEmptyVideoSlot();
+                if (pos.first == -1) {
+                    QMessageBox::warning(this, "배치 불가", "모든 영상 슬롯이 사용 중입니다.");
+                    return;
+                }
 
-            // ✅ 그래픽스 기반 구성
-            QGraphicsScene *scene = new QGraphicsScene(tileWrapper);
-            QGraphicsVideoItem *videoItem = new QGraphicsVideoItem();
-            videoItem->setSize(QSizeF(320, 240));
-            scene->addItem(videoItem);
+                QGridLayout *grid = qobject_cast<QGridLayout *>(videoGridPanel->layout());
+                if (!grid) return;
 
-            // ✅ 라벨 추가
-            QGraphicsTextItem *labelItem = scene->addText(name);
-            labelItem->setDefaultTextColor(Qt::white);
-            labelItem->setZValue(1);
-            labelItem->setPos(320 - 60, 5);  // 오른쪽 상단
+                QLayoutItem *existingItem = grid->itemAtPosition(pos.first, pos.second);
+                if (existingItem) {
+                    QWidget *oldWidget = existingItem->widget();
+                    if (oldWidget) {
+                        grid->removeWidget(oldWidget);
+                        delete oldWidget;
+                    }
+                }
 
-            // ✅ 뷰어
-            QGraphicsView *view = new QGraphicsView(scene, tileWrapper);
-            view->setFixedSize(320, 240);
-            view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-            view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-            view->setStyleSheet("border: none; background: black;");
-            view->setFrameStyle(QFrame::NoFrame);
+                // ✅ 래퍼 위젯 생성
+                QWidget *tileWrapper = new QWidget();
+                tileWrapper->setFixedSize(320, 240);
+                tileWrapper->setStyleSheet("background-color: black;");
 
-            // ✅ 플레이어
-            QMediaPlayer *player = new QMediaPlayer(this);
-            player->setVideoOutput(videoItem);
-            player->setSource(QUrl(QString("rtsps://%1:%2/processed").arg(ip, port)));
-            player->play();
+                // ✅ 그래픽스 기반 구성
+                QGraphicsScene *scene = new QGraphicsScene(tileWrapper);
+                QGraphicsVideoItem *videoItem = new QGraphicsVideoItem();
+                videoItem->setSize(QSizeF(320, 240));
+                scene->addItem(videoItem);
 
-            players.append(player);  // 기존 QVector 활용 시
-            grid->addWidget(tileWrapper, pos.first, pos.second);
-        }
-    });
-*/
+                // ✅ 이름 라벨 + 검정 배경 박스
+                QGraphicsRectItem *labelBg = scene->addRect(0, 0, 0, 0, Qt::NoPen, QBrush(QColor(0, 0, 0, 180)));
 
-    connect(cameraButton, &QPushButton::clicked, this, [=]() {
-        CameraRegistrationDialog dialog(this);
-        if (dialog.exec() == QDialog::Accepted) {
-            QString name = dialog.getCameraName();
-            QString ip = dialog.getCameraIP();
-            QString port = dialog.getCameraPort();
-            QString display = QString("%1 (%2:%3)").arg(name, ip, port);
-            cameraListPanel->addItem(display);
+                QGraphicsTextItem *labelItem = scene->addText(name);
+                labelItem->setDefaultTextColor(Qt::white);
+                labelItem->setFont(QFont("Arial", 10, QFont::Bold));
+                labelItem->setZValue(2);  // 텍스트 위
+                labelBg->setZValue(1);    // 박스 뒤
 
-            QPair<int, int> pos = findEmptyVideoSlot();
-            if (pos.first == -1) {
-                QMessageBox::warning(this, "배치 불가", "모든 영상 슬롯이 사용 중입니다.");
-                return;
+                QRectF textRect = labelItem->boundingRect();
+                labelBg->setRect(0, 0, textRect.width() + 10, textRect.height() + 4);  // padding 포함
+                labelBg->setPos(320 - textRect.width() - 14, 5);                       // 배경 위치
+                labelItem->setPos(320 - textRect.width() - 9, 7);                      // 텍스트 위치
+
+                // ✅ QGraphicsView로 장면 보여줌
+                QGraphicsView *view = new QGraphicsView(scene, tileWrapper);
+                view->setFixedSize(320, 240);
+                view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                view->setStyleSheet("border: none; background: black;");
+                view->setFrameStyle(QFrame::NoFrame);
+
+                // ✅ 플레이어 설정 및 실행
+                QMediaPlayer *player = new QMediaPlayer(this);
+                player->setVideoOutput(videoItem);
+                player->setSource(QUrl(QString("rtsps://%1:%2/processed").arg(ip, port)));
+                player->play();
+
+                players.append(player);
+                grid->addWidget(tileWrapper, pos.first, pos.second);
+
+                // ✅ 리스트 UI 갱신
+                refreshCameraListItems();
+                setupWebSocketConnections();
             }
+        });
+        */
+        connect(cameraButton, &QPushButton::clicked, this, [=]() {
+            CameraRegistrationDialog dialog(this);
+            if (dialog.exec() == QDialog::Accepted) {
+                QString name = dialog.getCameraName();
+                QString ip = dialog.getCameraIP();
+                QString port = dialog.getCameraPort();
 
-            QGridLayout *grid = qobject_cast<QGridLayout *>(videoGridPanel->layout());
-            if (!grid) return;
+                CameraInfo newCam{name, ip, port};
+                cameraList.append(newCam);
+                qDebug() << "[등록] 새 카메라 추가:" << name << ip << port;
 
-            QLayoutItem *existingItem = grid->itemAtPosition(pos.first, pos.second);
-            if (existingItem) {
-                QWidget *oldWidget = existingItem->widget();
-                if (oldWidget) {
+                QPair<int, int> pos = findEmptyVideoSlot();
+                if (pos.first == -1) {
+                    QMessageBox::warning(this, "배치 불가", "모든 영상 슬롯이 사용 중입니다.");
+                    return;
+                }
+
+                QGridLayout *grid = qobject_cast<QGridLayout *>(videoGridPanel->layout());
+                if (!grid) return;
+
+                QLayoutItem *existingItem = grid->itemAtPosition(pos.first, pos.second);
+                if (existingItem && existingItem->widget()) {
+                    QWidget *oldWidget = existingItem->widget();
                     grid->removeWidget(oldWidget);
                     delete oldWidget;
                 }
+
+                // ✅ 영상 출력용 tile wrapper
+                QWidget *tileWrapper = new QWidget();
+                tileWrapper->setFixedSize(320, 240);
+                tileWrapper->setStyleSheet("background-color: black;");
+
+                QGraphicsScene *scene = new QGraphicsScene(tileWrapper);
+                QGraphicsVideoItem *videoItem = new QGraphicsVideoItem();
+                videoItem->setSize(QSizeF(320, 240));
+                scene->addItem(videoItem);
+
+                // ✅ 이름 라벨 + 검정 배경 박스
+                QGraphicsRectItem *labelBg = scene->addRect(0, 0, 0, 0, Qt::NoPen, QBrush(QColor(0, 0, 0, 180)));
+                QGraphicsTextItem *labelItem = scene->addText(name);
+                labelItem->setDefaultTextColor(Qt::white);
+                labelItem->setFont(QFont("Arial", 10, QFont::Bold));
+                labelItem->setZValue(2);  // 텍스트 위
+                labelBg->setZValue(1);    // 박스 뒤
+
+                QRectF textRect = labelItem->boundingRect();
+                labelBg->setRect(0, 0, textRect.width() + 10, textRect.height() + 4);
+                labelBg->setPos(320 - textRect.width() - 14, 5);
+                labelItem->setPos(320 - textRect.width() - 9, 7);
+
+                QGraphicsView *view = new QGraphicsView(scene, tileWrapper);
+                view->setFixedSize(320, 240);
+                view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+                view->setStyleSheet("border: none; background: black;");
+                view->setFrameStyle(QFrame::NoFrame);
+
+                QMediaPlayer *player = new QMediaPlayer(this);
+                player->setVideoOutput(videoItem);
+                player->setSource(QUrl(QString("rtsps://%1:%2/processed").arg(ip, port)));
+                player->play();
+
+                players.append(player);
+                grid->addWidget(tileWrapper, pos.first, pos.second);
+
+                // ✅ 리스트 갱신 및 WebSocket 연결
+                refreshCameraListItems();
+                setupWebSocketConnections();
             }
+        });
 
-            // ✅ 래퍼 위젯 생성
-            QWidget *tileWrapper = new QWidget();
-            tileWrapper->setFixedSize(320, 240);
-            tileWrapper->setStyleSheet("background-color: black;");
 
-            // ✅ 그래픽스 기반 구성
-            QGraphicsScene *scene = new QGraphicsScene(tileWrapper);
-            QGraphicsVideoItem *videoItem = new QGraphicsVideoItem();
-            videoItem->setSize(QSizeF(320, 240));
-            scene->addItem(videoItem);
+    }
 
-            // ✅ 이름 라벨 + 검정 배경 박스
-            QGraphicsRectItem *labelBg = scene->addRect(0, 0, 0, 0, Qt::NoPen, QBrush(QColor(0, 0, 0, 180)));
-
-            QGraphicsTextItem *labelItem = scene->addText(name);
-            labelItem->setDefaultTextColor(Qt::white);
-            labelItem->setFont(QFont("Arial", 10, QFont::Bold));
-            labelItem->setZValue(2);  // 텍스트 위
-            labelBg->setZValue(1);    // 박스 뒤
-
-            QRectF textRect = labelItem->boundingRect();
-            labelBg->setRect(0, 0, textRect.width() + 10, textRect.height() + 4);  // padding 포함
-            labelBg->setPos(320 - textRect.width() - 14, 5);                       // 배경 위치
-            labelItem->setPos(320 - textRect.width() - 9, 7);                      // 텍스트 위치
-
-            // ✅ QGraphicsView로 장면 보여줌
-            QGraphicsView *view = new QGraphicsView(scene, tileWrapper);
-            view->setFixedSize(320, 240);
-            view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-            view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-            view->setStyleSheet("border: none; background: black;");
-            view->setFrameStyle(QFrame::NoFrame);
-
-            // ✅ 플레이어 설정 및 실행
-            QMediaPlayer *player = new QMediaPlayer(this);
-            player->setVideoOutput(videoItem);
-            player->setSource(QUrl(QString("rtsps://%1:%2/processed").arg(ip, port)));
-            player->play();
-
-            players.append(player);
-            grid->addWidget(tileWrapper, pos.first, pos.second);
-        }
-    });
-
-    // 버튼 배치
-    iconLayout->addWidget(cameraButton);
-    iconLayout->addWidget(settingsButton);
-    iconLayout->addWidget(healthButton);
-
-    // 📋 카메라 리스트
-    cameraListPanel = new QListWidget();
-    cameraListPanel->setStyleSheet(R"(
-        QListWidget {
-            background-color: #1e1e1e;
-            color: white;
-            border: none;
-        }
-        QListWidget::item:selected {
-            background-color: #2a82da;
-        }
-    )");
-    cameraListPanel->setFocusPolicy(Qt::NoFocus);
-    cameraListPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-
-    // 전체 구성 정리
-    layout->addLayout(iconLayout);
-    layout->addWidget(cameraListPanel);
-    cameraListWrapper->setFixedWidth(200);
+    refreshCameraListItems(); // 초기화 시 최초 1회 호출
 }
+
+
+
+void MainWindow::refreshCameraListItems() {
+    if (!listLayout) return;
+
+    // 기존 아이템 삭제
+    QLayoutItem *child;
+    while ((child = listLayout->takeAt(0)) != nullptr) {
+        if (child->widget()) {
+            child->widget()->deleteLater();
+        }
+        delete child;
+    }
+
+    qDebug() << "[갱신] 카메라 리스트 항목 갱신 시작, 항목 수:" << cameraList.size();
+
+    // 새 항목 추가
+    for (const CameraInfo &cam : cameraList) {
+        qDebug() << "[갱신] 카메라 추가:" << cam.name << cam.ip << cam.port;
+
+        CameraItemWidget *item = new CameraItemWidget(cam);
+        connect(item, QOverload<const QString &, const CameraInfo &>::of(&CameraItemWidget::modeChanged),
+                this, &MainWindow::sendModeChangeRequest);
+        listLayout->addWidget(item);
+    }
+
+    listLayout->addStretch();  // 아래 빈 공간 채움
+}
+
 
 void MainWindow::setupVideoGrid() {
     videoGridPanel = new QWidget();
@@ -323,12 +436,14 @@ void MainWindow::setupVideoGrid() {
             QString labelText = cameraLabels.value({row, col}, QString("(%1,%2)").arg(row).arg(col));
             QLabel *tile = new QLabel(labelText);
             tile->setObjectName("placeholder");  // ✅ 자리 표시자임을 명시
+            tile->setAutoFillBackground(true);
             tile->setStyleSheet(R"(
-                background-color: black;
+                background-color: rgba(0, 0, 0, 180);
                 color: white;
-                border: 1px solid gray;
-                margin: 0px;
-                padding: 0px;
+                padding: 3px 8px;
+                border-radius: 5px;
+                font-size: 12px;
+                font-weight: bold;
             )");
             tile->setAlignment(Qt::AlignCenter);
             tile->setMinimumSize(tileMinSize);
@@ -404,4 +519,95 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
         }
     }
     return false;
+}
+
+void MainWindow::sendModeChangeRequest(const QString &mode, const CameraInfo &camera)
+{
+    if (camera.ip.isEmpty()) {
+        qWarning() << "[모드 변경] 카메라 IP 없음 →" << camera.name;
+        return;
+    }
+
+    if (!socketMap.contains(camera.ip)) {
+        qWarning() << "[모드 변경] WebSocket 연결 없음 →" << camera.name;
+        return;
+    }
+
+    QWebSocket *socket = socketMap[camera.ip];
+    if (socket->state() != QAbstractSocket::ConnectedState) {
+        qWarning() << "[모드 변경] WebSocket 비연결 상태 →" << camera.name;
+        return;
+    }
+
+    // WebSocket 메시지 생성
+    QJsonObject payload;
+    payload["type"] = "set_mode";
+    payload["mode"] = mode;
+
+    QJsonDocument doc(payload);
+    QString message = doc.toJson(QJsonDocument::Compact);
+    socket->sendTextMessage(message);
+
+    qDebug() << "[WebSocket] 모드 변경 메시지 전송됨:" << message;
+
+    // 응답 처리 (임시 슬롯 연결, 필요 시 해제 고려)
+    connect(socket, &QWebSocket::textMessageReceived, this, [=](const QString &msg) {
+        QJsonDocument respDoc = QJsonDocument::fromJson(msg.toUtf8());
+        if (!respDoc.isObject()) return;
+
+        QJsonObject obj = respDoc.object();
+        QString type = obj["type"].toString();
+
+        if (type == "mode_change_ack") {
+            QString status = obj["status"].toString();
+            QString serverMessage = obj["message"].toString();
+
+            if (status == "error") {
+                qWarning() << "[모드 변경 실패]" << serverMessage;
+                QMessageBox::warning(this, "모드 변경 실패", serverMessage);
+            } else {
+                qDebug() << "[모드 변경 성공 응답]" << serverMessage;
+            }
+        }
+    });
+}
+
+void MainWindow::setupWebSocketConnections()
+{
+    for (const CameraInfo &camera : cameraList) {
+        if (socketMap.contains(camera.ip)) continue;  // 이미 연결된 경우 생략
+
+        QWebSocket *socket = new QWebSocket();
+
+        connect(socket, &QWebSocket::sslErrors, this, [socket](const QList<QSslError> &) {
+            socket->ignoreSslErrors();
+        });
+
+        connect(socket, &QWebSocket::connected, this, &MainWindow::onSocketConnected);
+        connect(socket, &QWebSocket::disconnected, this, &MainWindow::onSocketDisconnected);
+        connect(socket, &QWebSocket::errorOccurred,
+                this, &MainWindow::onSocketErrorOccurred);
+        connect(socket, &QWebSocket::textMessageReceived,
+                this, &MainWindow::onSocketMessageReceived);
+
+        QString wsUrl = QString("wss://%1:8443/ws").arg(camera.ip);
+        socket->open(QUrl(wsUrl));
+        socketMap[camera.ip] = socket;
+    }
+}
+
+void MainWindow::onSocketConnected() {
+    qDebug() << "[WebSocket] 연결됨";
+}
+
+void MainWindow::onSocketDisconnected() {
+    qDebug() << "[WebSocket] 연결 해제됨";
+}
+
+void MainWindow::onSocketErrorOccurred(QAbstractSocket::SocketError error) {
+    qWarning() << "[WebSocket] 에러 발생:" << error;
+}
+
+void MainWindow::onSocketMessageReceived(const QString &message) {
+    qDebug() << "[WebSocket] 메시지 수신:" << message;
 }

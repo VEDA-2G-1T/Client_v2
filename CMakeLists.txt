@@ -9,9 +9,9 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ✅ Widgets + Multimedia + MultimediaWidgets 모듈 찾기
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Multimedia MultimediaWidgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Multimedia MultimediaWidgets)
+# Qt 모듈 찾기 (Widgets, Multimedia, MultimediaWidgets, WebSockets 포함)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Multimedia MultimediaWidgets WebSockets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Multimedia MultimediaWidgets WebSockets)
 
 set(PROJECT_SOURCES
     main.cpp
@@ -21,6 +21,8 @@ set(PROJECT_SOURCES
     cameraregistrationdialog.h
     cameraregistrationdialog.cpp
     camerainfo.h
+    cameraitemwidget.h
+    cameraitemwidget.cpp
     resources.qrc
 )
 
@@ -41,11 +43,12 @@ else()
     endif()
 endif()
 
-# ✅ 모든 필요한 모듈 연결
+# 필요한 Qt 모듈 라이브러리 연결
 target_link_libraries(QtClientSSN_new-ui PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Multimedia
     Qt${QT_VERSION_MAJOR}::MultimediaWidgets
+    Qt${QT_VERSION_MAJOR}::WebSockets
 )
 
 # macOS bundle 설정 (필요 시)
@@ -69,7 +72,7 @@ install(TARGETS QtClientSSN_new-ui
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-# ✅ Qt 6용 최종 마무리
+# Qt 6용 최종 마무리
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(QtClientSSN_new-ui)
 endif()
