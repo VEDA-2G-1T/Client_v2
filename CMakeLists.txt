@@ -31,6 +31,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         logitemwidget.h logitemwidget.cpp
+        loghistorydialog.h loghistorydialog.cpp
+        logentry.h
     )
 else()
     if(ANDROID)

@@ -26,6 +26,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
+#include <QJsonArray>
+#include <algorithm>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -55,6 +57,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     mainLayout->addLayout(bodyLayout);
     setCentralWidget(central);
+
+    networkManager = new QNetworkAccessManager(this);  // ✅ 초기화
+
 }
 
 QPair<int, int> MainWindow::findEmptyVideoSlot() {
@@ -234,6 +239,8 @@ void MainWindow::setupCameraList() {
                 // ✅ 리스트 갱신 및 WebSocket 연결
                 refreshCameraListItems();
                 setupWebSocketConnections();
+                loadInitialLogs();
+
             }
         });
 
@@ -401,16 +408,58 @@ void MainWindow::setupVideoGrid() {
 }
 
 void MainWindow::setupEventLog() {
-
+    // 전체 로그 영역 래퍼
     eventLogPanelWrapper = new QWidget();
     eventLogPanelWrapper->setStyleSheet("background-color: #1e1e1e;");
-    eventLogPanelWrapper->setMinimumHeight(0);  // ✅ 추가
-    eventLogPanelWrapper->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);  // ✅ 추가
+    eventLogPanelWrapper->setMinimumHeight(0);
+    eventLogPanelWrapper->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
 
-    eventLogLayout = new QVBoxLayout(eventLogPanelWrapper);
+    // 👉 외부 레이아웃 (상단 버튼 + 하단 로그)
+    QVBoxLayout *outerLayout = new QVBoxLayout(eventLogPanelWrapper);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->setSpacing(0);
+
+    // ✅ 상단 버튼 영역
+    QWidget *headerWidget = new QWidget();
+    QHBoxLayout *headerLayout = new QHBoxLayout(headerWidget);
+    headerLayout->setContentsMargins(0, 0, 0, 0);   // 좌우 여백 제거
+    headerLayout->setSpacing(0);                    // 버튼 간 여백 제거
+
+    viewAllLogsButton = new QPushButton("Event Search");
+    viewAllLogsButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);  // 전체 너비
+    viewAllLogsButton->setStyleSheet(R"(
+        QPushButton {
+            background-color: transparent;
+            color: white;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 10px 0px;
+        }
+        QPushButton:hover {
+            background-color: #f37321;
+        }
+    )");
+
+    connect(viewAllLogsButton, &QPushButton::clicked, this, [=]() {
+        LogHistoryDialog *dialog = new LogHistoryDialog(logEntries, this);  // ✅ 로그 전달
+        dialog->exec();
+    });
+
+    headerLayout->addWidget(viewAllLogsButton);  // ✅ 중앙 정렬 제거 → 전체 폭 사용
+    headerWidget->setLayout(headerLayout);
+    outerLayout->addWidget(headerWidget);        // ✅ 상단에 고정
+
+    // ✅ 로그 항목 영역
+    QWidget *logContainer = new QWidget();
+    eventLogLayout = new QVBoxLayout(logContainer);
     eventLogLayout->setContentsMargins(0, 0, 0, 0);
     eventLogLayout->setSpacing(0);
 
+    outerLayout->addWidget(logContainer);
+    outerLayout->addStretch();  // 남는 공간 채움
+
+    // 스크롤 설정
     eventLogScroll = new QScrollArea();
     eventLogScroll->setWidgetResizable(true);
     eventLogScroll->setWidget(eventLogPanelWrapper);
@@ -418,16 +467,15 @@ void MainWindow::setupEventLog() {
     eventLogScroll->setAlignment(Qt::AlignTop);
 
     eventLogScroll->setStyleSheet(R"(
-    QScrollArea {
-        background-color: #1e1e1e;
-        border: none;
-    }
-    QWidget {
-        background-color: #1e1e1e;
-    }
-)");
+        QScrollArea {
+            background-color: #1e1e1e;
+            border: none;
+        }
+        QWidget {
+            background-color: #1e1e1e;
+        }
+    )");
 }
-
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
     if (event->type() == QEvent::Resize) {
@@ -663,7 +711,7 @@ void MainWindow::onSocketMessageReceived(const QString &message)
             ppeViolationStreakMap[camera.name] = 0;
         }
 
-        addLogEntry(camera.name, "PPE", event, imagePath, details, camera.ip);
+        addLogEntry(camera.name, "PPE", event, imagePath, details, camera.ip, ts);
     }
 
     else if (type == "new_trespass") {
@@ -674,7 +722,7 @@ void MainWindow::onSocketMessageReceived(const QString &message)
         if (count > 0) {
             QString event = QString("🚷 무단 침입 감지 (%1명)").arg(count);
             QString details = QString("감지 시각: %1 | 침입자 수: %2").arg(ts).arg(count);
-            addLogEntry(camera.name, "Night", event, imagePath, details, camera.ip);  // ✅ 이미지 포함
+            addLogEntry(camera.name, "Night", event, imagePath, details, camera.ip, ts);  // ✅ 이미지 포함
         }
     }
 
@@ -688,7 +736,7 @@ void MainWindow::onSocketMessageReceived(const QString &message)
 
         int count = data["count"].toInt();
         QString event = QString("🔍 %1명 감지").arg(count);
-        addLogEntry(camera.name, "Blur", event, "", "", camera.ip);
+        addLogEntry(camera.name, "Blur", event, "", "", camera.ip, ts);
         recentBlurLogKeys.insert(key);
     }
 
@@ -699,10 +747,10 @@ void MainWindow::onSocketMessageReceived(const QString &message)
         qDebug() << "[이상소음 상태]" << status << "at" << timestamp;
 
         if (status == "detected" && lastAnomalyStatus[camera.name] != "detected") {
-            addLogEntry(camera.name, "Sound", "⚠️ 이상소음 감지됨", "", "이상소음 발생", camera.ip);
+            addLogEntry(camera.name, "Sound", "⚠️ 이상소음 감지됨", "", "이상소음 발생", camera.ip, timestamp);
         }
         else if (status == "cleared" && lastAnomalyStatus[camera.name] == "detected") {
-            addLogEntry(camera.name, "Sound", "✅ 이상소음 해제됨", "", "이상소음 정상 상태", camera.ip);
+            addLogEntry(camera.name, "Sound", "✅ 이상소음 해제됨", "", "이상소음 정상 상태", camera.ip, timestamp);
         }
 
         lastAnomalyStatus[camera.name] = status;
@@ -715,7 +763,7 @@ void MainWindow::onSocketMessageReceived(const QString &message)
         if (count > 0) {
             QString event = "🚨 낙상 감지";
             QString details = QString("낙상 감지 시각: %1").arg(ts);
-            addLogEntry(camera.name, "Fall", event, "", details, camera.ip);
+            addLogEntry(camera.name, "Fall", event, "", details, camera.ip, ts);
         }
     }
 
@@ -724,6 +772,7 @@ void MainWindow::onSocketMessageReceived(const QString &message)
         int light = data["light"].toInt();
         bool buzzer = data["buzzer_on"].toBool();
         bool led = data["led_on"].toBool();
+
 
         QString details = QString("🌡️ 온도: %1°C | 💡 밝기: %2 | 🔔 버저: %3 | 💡 LED: %4")
                               .arg(temp, 0, 'f', 2)
@@ -768,9 +817,10 @@ void MainWindow::addLogEntry(const QString &cameraName,
                              const QString &event,
                              const QString &imagePath,
                              const QString &details,
-                             const QString &ip)
+                             const QString &ip,
+                             const QString &timestamp)  // ✅ 추가
 {
-    QString time = QTime::currentTime().toString("HH:mm:ss");
+    QString time = timestamp;  // ✅ 이제 클라이언트 시간 말고 서버 시간 사용
     QString imageUrl;
 
     if (!imagePath.isEmpty()) {
@@ -778,11 +828,117 @@ void MainWindow::addLogEntry(const QString &cameraName,
         imageUrl = QString("http://%1/%2").arg(ip, cleanPath);
     }
 
+    logEntries.insert(0, {cameraName, function, event, time, imageUrl});
+
     LogItemWidget *logItem = new LogItemWidget(cameraName, event, time, imageUrl);
     eventLogLayout->insertWidget(0, logItem);
 
     if (eventLogLayout->count() > 100) {
         QLayoutItem *oldItem = eventLogLayout->takeAt(eventLogLayout->count() - 1);
         if (oldItem && oldItem->widget()) delete oldItem->widget();
+    }
+}
+
+void MainWindow::loadInitialLogs()
+{
+    logEntries.clear();  // 초기화
+
+    int totalRequests = cameraList.size() * 2;  // PPE + Trespass
+    int *completedCount = new int(0);  // 람다에서 사용 가능하도록 동적 할당
+
+    // ✅ std::function으로 정의해야 const lambda 안에서도 호출 가능
+    std::function<void()> trySortAndPrint;
+
+    trySortAndPrint = [=]() {
+        (*completedCount)++;
+        if (*completedCount == totalRequests) {
+            qDebug() << "[모든 초기 로그 수신 완료] 총" << logEntries.size() << "건";
+
+            std::sort(logEntries.begin(), logEntries.end(), [](const LogEntry &a, const LogEntry &b) {
+                return QDateTime::fromString(a.timestamp, "yyyy-MM-dd HH:mm:ss") >
+                       QDateTime::fromString(b.timestamp, "yyyy-MM-dd HH:mm:ss");
+            });
+
+            delete completedCount;  // 누수 방지
+        }
+    };
+
+    for (const CameraInfo &camera : cameraList) {
+        // ✅ PPE 요청
+        QString urlPPE = QString("https://%1:8443/api/detections").arg(camera.ip);
+        QNetworkRequest reqPPE{QUrl(urlPPE)};
+        QNetworkReply *replyPPE = networkManager->get(reqPPE);
+        replyPPE->ignoreSslErrors();
+
+        connect(replyPPE, &QNetworkReply::finished, this, [=]() {
+            replyPPE->deleteLater();
+            if (replyPPE->error() != QNetworkReply::NoError) return trySortAndPrint();
+
+            QJsonDocument doc = QJsonDocument::fromJson(replyPPE->readAll());
+            if (!doc.isObject()) return trySortAndPrint();
+
+            QJsonArray arr = doc["detections"].toArray();
+            for (const QJsonValue &val : arr) {
+                QJsonObject obj = val.toObject();
+                QString ts = obj["timestamp"].toString();
+                int person = obj["person_count"].toInt();
+                int helmet = obj["helmet_count"].toInt();
+                int vest = obj["safety_vest_count"].toInt();
+                double conf = obj["avg_confidence"].toDouble();
+                QString imgPath = obj["image_path"].toString();
+
+                QString event;
+                if (helmet < person && vest >= person)
+                    event = "⛑️ 헬멧 미착용 감지";
+                else if (vest < person && helmet >= person)
+                    event = "🦺 조끼 미착용 감지";
+                else
+                    event = "⛑️ 🦺 PPE 미착용 감지";
+
+                QString imageUrl;
+                if (!imgPath.isEmpty()) {
+                    QString cleanPath = imgPath.startsWith("../") ? imgPath.mid(3) : imgPath;
+                    imageUrl = QString("http://%1/%2").arg(camera.ip, cleanPath);
+                }
+
+                logEntries.append({camera.name, "PPE", event, ts, imageUrl});
+            }
+
+            trySortAndPrint();
+        });
+
+        // ✅ 무단 침입 요청
+        QString urlTrespass = QString("https://%1:8443/api/trespass").arg(camera.ip);
+        QNetworkRequest reqTrespass{QUrl(urlTrespass)};
+        QNetworkReply *replyTrespass = networkManager->get(reqTrespass);
+        replyTrespass->ignoreSslErrors();
+
+        connect(replyTrespass, &QNetworkReply::finished, this, [=]() {
+            replyTrespass->deleteLater();
+            if (replyTrespass->error() != QNetworkReply::NoError) return trySortAndPrint();
+
+            QByteArray raw = replyTrespass->readAll();
+            QJsonDocument doc = QJsonDocument::fromJson(raw);
+            if (!doc.isObject()) return trySortAndPrint();
+
+            QJsonArray arr = doc["detections"].toArray();
+            for (const QJsonValue &val : arr) {
+                QJsonObject obj = val.toObject();
+                QString ts = obj["timestamp"].toString();
+                int count = obj["count"].toInt();
+                QString imgPath = obj["image_path"].toString();
+
+                QString event = QString("🚷 무단 침입 감지 (%1명)").arg(count);
+                QString imageUrl;
+                if (!imgPath.isEmpty()) {
+                    QString cleanPath = imgPath.startsWith("../") ? imgPath.mid(3) : imgPath;
+                    imageUrl = QString("https://%1:8443/%2").arg(camera.ip, cleanPath);
+                }
+
+                logEntries.append({camera.name, "Night", event, ts, imageUrl});
+            }
+
+            trySortAndPrint();
+        });
     }
 }

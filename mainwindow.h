@@ -3,6 +3,8 @@
 
 #include "cameraregistrationdialog.h"
 #include "camerainfo.h"
+#include "loghistorydialog.h"  // ✅ 헤더 포함
+#include "logentry.h"  // ✅ 이 줄 꼭 필요함!
 
 #include <QMainWindow>
 #include <QTableWidget>
@@ -20,6 +22,7 @@
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QScrollArea>
+#include <QNetworkAccessManager>  // 이미 있을 수도 있음
 
 class MainWindow : public QMainWindow
 {
@@ -85,8 +88,16 @@ private:
                      const QString &event,
                      const QString &imagePath,
                      const QString &details,
-                     const QString &ip);
+                     const QString &ip,
+                     const QString &timestamp = "");  // ✅ 여기에 콤마와 괄호 정상 처리
 
+    QPushButton *viewAllLogsButton;  // ✅ 로그 다이얼로그 버튼
+
+    QVector<LogEntry> logEntries;  // ✅ 전체 로그 누적 저장
+
+    void loadInitialLogs();  // ✅ 선언 추가
+
+    QNetworkAccessManager *networkManager;  // ✅ 네트워크 요청용
 
 private slots:
     void sendModeChangeRequest(const QString &mode, const CameraInfo &camera);
