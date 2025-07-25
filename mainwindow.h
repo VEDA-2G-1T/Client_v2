@@ -65,6 +65,25 @@ private:
     QMap<QString, QWebSocket*> socketMap;    // IP 주소 → QWebSocket 포인터 매핑
     void setupWebSocketConnections();
 
+    // ✅ PPE 위반 연속 감지 카운터
+    QMap<QString, int> ppeViolationStreakMap;
+
+    // ✅ Blur 중복 방지용 키 저장
+    QSet<QString> recentBlurLogKeys;
+
+    // ✅ 이상소음 상태 기억용
+    QMap<QString, QString> lastAnomalyStatus;
+
+    QSet<QString> healthCheckResponded;
+
+
+    void addLogEntry(const QString &cameraName,
+                     const QString &function,
+                     const QString &event,
+                     const QString &imagePath,
+                     const QString &details,
+                     const QString &ip);
+
 
 private slots:
     void sendModeChangeRequest(const QString &mode, const CameraInfo &camera);

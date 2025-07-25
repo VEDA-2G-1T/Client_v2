@@ -22,6 +22,9 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QtWebSockets/QWebSocket>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -405,8 +408,23 @@ void MainWindow::setupEventLog() {
     eventLogPanel->verticalHeader()->setVisible(false);
     eventLogPanel->setFixedWidth(400);
     eventLogPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    eventLogPanel->setStyleSheet("background-color: #1e1e1e; color: white;");
-}
+
+    // ✅ 다크 테마 스타일 적용
+    eventLogPanel->setStyleSheet(R"(
+        QTableWidget {
+            background-color: #1e1e1e;
+            color: white;
+            gridline-color: #333;
+            selection-background-color: #444;
+        }
+        QHeaderView::section {
+            background-color: #2b2b2b;
+            color: white;
+            font-weight: bold;
+            padding: 4px;
+            border: 1px solid #444;
+        }
+    )");}
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
     if (event->type() == QEvent::Resize) {
@@ -462,27 +480,6 @@ void MainWindow::sendModeChangeRequest(const QString &mode, const CameraInfo &ca
     socket->sendTextMessage(message);
 
     qDebug() << "[WebSocket] 모드 변경 메시지 전송됨:" << message;
-
-    // 응답 처리 (임시 슬롯 연결, 필요 시 해제 고려)
-    connect(socket, &QWebSocket::textMessageReceived, this, [=](const QString &msg) {
-        QJsonDocument respDoc = QJsonDocument::fromJson(msg.toUtf8());
-        if (!respDoc.isObject()) return;
-
-        QJsonObject obj = respDoc.object();
-        QString type = obj["type"].toString();
-
-        if (type == "mode_change_ack") {
-            QString status = obj["status"].toString();
-            QString serverMessage = obj["message"].toString();
-
-            if (status == "error") {
-                qWarning() << "[모드 변경 실패]" << serverMessage;
-                QMessageBox::warning(this, "모드 변경 실패", serverMessage);
-            } else {
-                qDebug() << "[모드 변경 성공 응답]" << serverMessage;
-            }
-        }
-    });
 }
 
 void MainWindow::setupWebSocketConnections()
@@ -521,6 +518,288 @@ void MainWindow::onSocketErrorOccurred(QAbstractSocket::SocketError error) {
     qWarning() << "[WebSocket] 에러 발생:" << error;
 }
 
-void MainWindow::onSocketMessageReceived(const QString &message) {
-    qDebug() << "[WebSocket] 메시지 수신:" << message;
+void MainWindow::onSocketMessageReceived(const QString &message)
+{
+    qDebug() << "[WebSocket 수신 메시지]" << message;
+
+    QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
+    if (!doc.isObject()) {
+        qWarning() << "[WebSocket 메시지] JSON 파싱 실패";
+        return;
+    }
+
+    QJsonObject obj = doc.object();
+    QString type = obj["type"].toString();
+    QJsonObject data = obj["data"].toObject();
+
+    qDebug() << "📨 [WebSocket 타입]" << type;
+
+    QString ipSender;
+    QWebSocket *senderSocket = qobject_cast<QWebSocket*>(sender());
+    for (auto it = socketMap.begin(); it != socketMap.end(); ++it) {
+        if (it.value() == senderSocket) {
+            ipSender = it.key();
+            break;
+        }
+    }
+
+    if (ipSender.isEmpty()) {
+        qWarning() << "[WebSocket] 발신자 IP 찾기 실패";
+        return;
+    }
+
+    const CameraInfo *cameraPtr = nullptr;
+    for (int i = 0; i < cameraList.size(); ++i) {
+        if (cameraList[i].ip.trimmed() == ipSender.trimmed()) {
+            cameraPtr = &cameraList[i];
+            break;
+        }
+    }
+
+    if (!cameraPtr) {
+        qWarning() << "[WebSocket] CameraInfo 찾기 실패 for IP:" << ipSender;
+        return;
+    }
+    const CameraInfo &camera = *cameraPtr;
+
+    if (type == "new_detection") {
+        int person = data["person_count"].toInt();
+        int helmet = data["helmet_count"].toInt();
+        int vest = data["safety_vest_count"].toInt();
+        double conf = data["avg_confidence"].toDouble();
+        QString imagePath = data["image_path"].toString();
+        QString ts = data["timestamp"].toString();
+
+        QString event;
+        QString details = QString("👷 %1명 | ⛑️ %2명 | 🦺 %3명 | 신뢰도: %4")
+                              .arg(person).arg(helmet).arg(vest).arg(conf, 0, 'f', 2);
+
+        if (helmet < person && vest >= person)
+            event = "⛑️ 헬멧 미착용 감지";
+        else if (vest < person && helmet >= person)
+            event = "🦺 조끼 미착용 감지";
+        else
+            event = "⛑️ 🦺 PPE 미착용 감지";
+
+        qDebug() << "[PPE 이벤트]" << event << "IP:" << camera.ip;
+
+        if (event.contains("미착용")) {
+            int count = ppeViolationStreakMap[camera.name] + 1;
+            ppeViolationStreakMap[camera.name] = count;
+
+            if (count >= 4) {
+                QDialog *popup = new QDialog(this);
+                popup->setWindowTitle("지속적인 PPE 위반");
+                popup->setModal(false);
+                popup->setStyleSheet(R"(
+        QDialog {
+            background-color: #2b2b2b;
+            color: white;
+        }
+        QLabel {
+            color: white;
+            font-size: 13px;
+        }
+        QPushButton {
+            background-color: #444;
+            color: white;
+            border: 1px solid #666;
+            border-radius: 4px;
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+        QPushButton:hover {
+            background-color: #666;
+        }
+    )");
+
+                QVBoxLayout *layout = new QVBoxLayout(popup);
+
+                // 텍스트 메시지
+                QLabel *textLabel = new QLabel(QString("⚠️ <b>%1</b> 카메라에서<br>PPE 미착용이 <b>연속 4회</b> 감지되었습니다!").arg(camera.name));
+                textLabel->setTextFormat(Qt::RichText);
+                textLabel->setWordWrap(true);
+                layout->addWidget(textLabel);
+
+                // 이미지가 있을 경우 비동기 로딩
+                if (!imagePath.isEmpty()) {
+                    QString cleanPath = imagePath;
+                    if (cleanPath.startsWith("../"))
+                        cleanPath = cleanPath.mid(3);
+                    QString urlStr = QString("http://%1/%2").arg(camera.ip, cleanPath);
+                    QUrl url(urlStr);
+                    QNetworkRequest request(url);
+
+                    QNetworkAccessManager *manager = new QNetworkAccessManager(popup);
+                    QNetworkReply *reply = manager->get(request);
+
+                    connect(reply, &QNetworkReply::finished, popup, [=]() {
+                        reply->deleteLater();
+                        QPixmap pix;
+                        pix.loadFromData(reply->readAll());
+                        if (!pix.isNull()) {
+                            QLabel *imgLabel = new QLabel();
+                            imgLabel->setPixmap(pix.scaled(400, 300, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                            layout->addWidget(imgLabel);
+                            popup->adjustSize();
+                        }
+                    });
+                }
+
+                // 확인 버튼
+                QPushButton *okBtn = new QPushButton("확인");
+                connect(okBtn, &QPushButton::clicked, popup, &QDialog::accept);
+                layout->addWidget(okBtn, 0, Qt::AlignRight);
+
+                popup->show();
+
+                // streak 리셋
+                ppeViolationStreakMap[camera.name] = 0;
+            }
+        } else {
+            ppeViolationStreakMap[camera.name] = 0;
+        }
+
+        addLogEntry(camera.name, "PPE", event, imagePath, details, camera.ip);
+    }
+
+    else if (type == "new_trespass") {
+        QString ts = data["timestamp"].toString();
+        int count = data["count"].toInt();
+
+        if (count > 0) {
+            QString event = QString("🌙 야간 침입 감지 (%1명)").arg(count);
+            QString details = QString("감지 시각: %1 | 침입자 수: %2").arg(ts).arg(count);
+            addLogEntry(camera.name, "Night", event, "", details, camera.ip);
+        }
+    }
+
+    else if (type == "new_blur") {
+        QString ts = data["timestamp"].toString();
+        QString key = camera.name + "_" + ts;
+        if (recentBlurLogKeys.contains(key)) {
+            qDebug() << "[BLUR 중복 무시]" << key;
+            return;
+        }
+
+        int count = data["count"].toInt();
+        QString event = QString("🔍 %1명 감지").arg(count);
+        addLogEntry(camera.name, "Blur", event, "", "", camera.ip);
+        recentBlurLogKeys.insert(key);
+    }
+
+    else if (type == "anomaly_status") {
+        QString status = data["status"].toString();
+        QString timestamp = data["timestamp"].toString();
+
+        qDebug() << "[이상소음 상태]" << status << "at" << timestamp;
+
+        if (status == "detected" && lastAnomalyStatus[camera.name] != "detected") {
+            addLogEntry(camera.name, "Sound", "⚠️ 이상소음 감지됨", "", "이상소음 발생", camera.ip);
+        }
+        else if (status == "cleared" && lastAnomalyStatus[camera.name] == "detected") {
+            addLogEntry(camera.name, "Sound", "✅ 이상소음 해제됨", "", "이상소음 정상 상태", camera.ip);
+        }
+
+        lastAnomalyStatus[camera.name] = status;
+    }
+
+    else if (type == "new_fall") {
+        QString ts = data["timestamp"].toString();
+        int count = data["count"].toInt();
+
+        if (count > 0) {
+            QString event = "🚨 낙상 감지";
+            QString details = QString("낙상 감지 시각: %1").arg(ts);
+            addLogEntry(camera.name, "Fall", event, "", details, camera.ip);
+        }
+    }
+
+    else if (type == "stm_status_update") {
+        double temp = data["temperature"].toDouble();
+        int light = data["light"].toInt();
+        bool buzzer = data["buzzer_on"].toBool();
+        bool led = data["led_on"].toBool();
+
+        QString details = QString("🌡️ 온도: %1°C | 💡 밝기: %2 | 🔔 버저: %3 | 💡 LED: %4")
+                              .arg(temp, 0, 'f', 2)
+                              .arg(light)
+                              .arg(buzzer ? "ON" : "OFF")
+                              .arg(led ? "ON" : "OFF");
+
+        healthCheckResponded.insert(camera.ip);
+        addLogEntry(camera.name, "Health", "✅ 상태 수신", "", details, camera.ip);
+    }
+
+    else if (type == "mode_change_ack") {
+        QString status = obj["status"].toString();
+        QString mode = obj["mode"].toString();
+        QString message = obj["message"].toString();
+
+        if (status == "error") {
+            qWarning() << "[모드 변경 실패]" << message;
+            QMessageBox::warning(this, "모드 변경 실패", message);
+        } else {
+            qDebug() << "[모드 변경 성공 응답]" << mode;
+        }
+    }
+
+    else if (type == "log") {
+        QString event = data["event"].toString();
+        QString details = data["details"].toString();
+        QString function = data["function"].toString();  // 예: "Blur", "PPE" 등
+        QString imagePath = data["image_path"].toString();
+        QString ts = data["timestamp"].toString();
+
+        addLogEntry(camera.name, function, event, imagePath, details, camera.ip);
+    }
+
+    else {
+        qWarning() << "[WebSocket] 알 수 없는 타입 수신:" << type;
+    }
 }
+
+void MainWindow::addLogEntry(const QString &cameraName,
+                             const QString &function,
+                             const QString &event,
+                             const QString &imagePath,
+                             const QString &details,
+                             const QString &ip)
+{
+    QString date = QDate::currentDate().toString("yyyy-MM-dd");
+    QString time = QTime::currentTime().toString("HH:mm:ss");
+
+    int zone = -1;
+    for (int i = 0; i < cameraList.size(); ++i) {
+        if (cameraList[i].name == cameraName) {
+            zone = i + 1;
+            break;
+        }
+    }
+
+    // ✅ 우측 실시간 로그 패널만 사용
+    int row = eventLogPanel->rowCount();
+    eventLogPanel->insertRow(0);  // 👈 맨 위에 추가
+    eventLogPanel->setItem(0, 0, new QTableWidgetItem(time));
+    eventLogPanel->setItem(0, 1, new QTableWidgetItem(cameraName));
+    eventLogPanel->setItem(0, 2, new QTableWidgetItem(event));
+    eventLogPanel->scrollToItem(eventLogPanel->item(0, 0));  // 👈 맨 위로 스크롤
+/*
+    // ✅ 전체 로그 저장
+    fullLogEntries.prepend({
+        cameraName,
+        function,
+        event,
+        imagePath,
+        details,
+        date,
+        time,
+        zone,
+        ip
+    });
+*/
+    // 🔁 필요 시 오래된 로그 제한
+    if (eventLogPanel->rowCount() > 100)
+        eventLogPanel->removeRow(0);  // 오래된 것 제거 (위에서부터)
+}
+
