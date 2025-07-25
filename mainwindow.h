@@ -18,6 +18,10 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() = default;
 
+protected:
+    // ✅ 이벤트 필터 오버라이드 선언
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     // 🔲 상단 바
     void setupTopBar();

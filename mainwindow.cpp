@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -11,6 +12,9 @@
 #include <QGridLayout>
 #include <QSpacerItem>
 #include <QStyle>
+#include <QVideoWidget>
+#include <QMediaPlayer>
+#include <QEvent>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -151,7 +155,7 @@ void MainWindow::setupCameraList() {
 void MainWindow::setupVideoGrid() {
     videoGridPanel = new QWidget();
     videoGridPanel->setStyleSheet("background-color: #2b2b2b;");
-    videoGridPanel->setMinimumSize(960, 720);  // 전체 최소 크기 보장
+    videoGridPanel->setMinimumSize(960, 720);
     videoGridPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     QGridLayout *grid = new QGridLayout(videoGridPanel);
@@ -183,7 +187,6 @@ void MainWindow::setupVideoGrid() {
                 margin: 0px;
                 padding: 0px;
             )");
-            tile->setContentsMargins(0, 0, 0, 0);
             tile->setAlignment(Qt::AlignCenter);
             tile->setMinimumSize(tileMinSize);
             tile->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -192,21 +195,25 @@ void MainWindow::setupVideoGrid() {
         }
     }
 
-    // ONVIF 병합 타일
-    QLabel *largeTile = new QLabel("ONVIF Camera");
-    largeTile->setStyleSheet(R"(
-        background-color: darkblue;
-        color: white;
-        border: 1px solid gray;
-        margin: 0px;
-        padding: 0px;
-    )");
-    largeTile->setContentsMargins(0, 0, 0, 0);
-    largeTile->setAlignment(Qt::AlignCenter);
-    largeTile->setMinimumSize(640, 480);
-    largeTile->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    largeTile->setScaledContents(true);
-    grid->addWidget(largeTile, 1, 1, 2, 2);
+    // ✅ 4:3 비율로 고정해서 보여줄 ONVIF 영상 타일
+    QWidget *videoContainer = new QWidget();
+    videoContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    QVideoWidget *videoWidget = new QVideoWidget(videoContainer);
+    videoWidget->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+    videoWidget->setGeometry(0, 0, 640, 480);
+    videoWidget->setStyleSheet("background-color: black; border: 1px solid gray;");
+    videoWidget->setAspectRatioMode(Qt::IgnoreAspectRatio);  // 왜곡 허용
+
+    // EventFilter를 통해 resize 시 강제 4:3 비율 유지
+    videoContainer->installEventFilter(this);
+
+    QMediaPlayer *player = new QMediaPlayer(this);
+    player->setVideoOutput(videoWidget);
+    player->setSource(QUrl("rtsp://192.168.0.35:554/0/onvif/profile2/media.smp"));
+    player->play();
+
+    grid->addWidget(videoContainer, 1, 1, 2, 2);
 
     // ✅ 비율 유지하도록 stretch 적용
     grid->setColumnStretch(0, 1);
@@ -228,4 +235,30 @@ void MainWindow::setupEventLog() {
     eventLogPanel->setFixedWidth(400);
     eventLogPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     eventLogPanel->setStyleSheet("background-color: #1e1e1e; color: white;");
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
+    if (event->type() == QEvent::Resize) {
+        QWidget *container = qobject_cast<QWidget *>(watched);
+        if (container) {
+            QSize size = container->size();
+            int w = size.width();
+            int h = size.height();
+
+            // 4:3 비율 유지
+            float targetAspect = 4.0f / 3.0f;
+            int newW = w;
+            int newH = static_cast<int>(w / targetAspect);
+
+            if (newH > h) {
+                newH = h;
+                newW = static_cast<int>(h * targetAspect);
+            }
+
+            QVideoWidget *video = container->findChild<QVideoWidget *>();
+            if (video)
+                video->setGeometry((w - newW) / 2, (h - newH) / 2, newW, newH);
+        }
+    }
+    return false;
 }

@@ -9,36 +9,31 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+# ✅ Widgets + Multimedia + MultimediaWidgets 모듈 찾기
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Multimedia MultimediaWidgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Multimedia MultimediaWidgets)
 
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
+    main.cpp
+    mainwindow.cpp
+    mainwindow.h
+    mainwindow.ui
+    cameraregistrationdialog.h
+    cameraregistrationdialog.cpp
+    camerainfo.h
+    resources.qrc
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QtClientSSN_new-ui
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        resources.qrc
-        cameraregistrationdialog.h cameraregistrationdialog.cpp
-        camerainfo.h
-
     )
-# Define target properties for Android with Qt 6 as:
-#    set_property(TARGET QtClientSSN_new-ui APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-#                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
-# For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
 else()
     if(ANDROID)
         add_library(QtClientSSN_new-ui SHARED
             ${PROJECT_SOURCES}
         )
-# Define properties for Android with Qt 5 after find_package() calls as:
-#    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
     else()
         add_executable(QtClientSSN_new-ui
             ${PROJECT_SOURCES}
@@ -46,14 +41,18 @@ else()
     endif()
 endif()
 
-target_link_libraries(QtClientSSN_new-ui PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+# ✅ 모든 필요한 모듈 연결
+target_link_libraries(QtClientSSN_new-ui PRIVATE
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Multimedia
+    Qt${QT_VERSION_MAJOR}::MultimediaWidgets
+)
 
-# Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
-# If you are developing for iOS or macOS you should consider setting an
-# explicit, fixed bundle identifier manually though.
+# macOS bundle 설정 (필요 시)
 if(${QT_VERSION} VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.QtClientSSN_new-ui)
 endif()
+
 set_target_properties(QtClientSSN_new-ui PROPERTIES
     ${BUNDLE_ID_OPTION}
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
@@ -62,6 +61,7 @@ set_target_properties(QtClientSSN_new-ui PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
 
+# 설치 디렉토리 설정
 include(GNUInstallDirs)
 install(TARGETS QtClientSSN_new-ui
     BUNDLE DESTINATION .
@@ -69,6 +69,7 @@ install(TARGETS QtClientSSN_new-ui
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+# ✅ Qt 6용 최종 마무리
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(QtClientSSN_new-ui)
 endif()
