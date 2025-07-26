@@ -88,10 +88,11 @@ void LogHistoryDialog::setupUI()
     QWidget *filterWidget = new QWidget();
     filterWidget->setLayout(filterLayout);
     filterWidget->setFixedWidth(100);
-    filterWidget->setStyleSheet("background-color: #1e1e1e;");
+    filterWidget->setStyleSheet("background-color: transparent;");
 
     // 🔹 탭 위젯 (중앙)
     tabWidget = new QTabWidget(this);
+    filterWidget->setFixedHeight(460);  // 너가 쓰는 tabWidget 높이에 맞게
     connect(tabWidget, &QTabWidget::currentChanged, this, &LogHistoryDialog::applyFilter);
 
     // 🔹 이미지 프리뷰 (우측)
