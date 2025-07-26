@@ -11,16 +11,42 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
     : QDialog(parent), cameraList(cameras)
 {
     setWindowTitle("카메라 밝기 조절");
-    setFixedSize(400, 240);
+    setFixedSize(300, 150);
     setStyleSheet("background-color: #2b2b2b; color: white;");
 
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    // 🔹 Hanwha 폰트 등록
+    int rid = QFontDatabase::addApplicationFont(":/resources/fonts/05HanwhaGothicR.ttf");
+    int lid = QFontDatabase::addApplicationFont(":/resources/fonts/06HanwhaGothicL.ttf");
+    QString rFont = QFontDatabase::applicationFontFamilies(rid).at(0);
+    QString lFont = QFontDatabase::applicationFontFamilies(lid).at(0);
 
-    // 🔹 카메라 선택 콤보박스
+    QFont labelFont(rFont, 10);
+    QFont valueFont(rFont, 10, QFont::Bold);
+    QFont comboFont(lFont, 10);
+    QFont rangeFont(lFont, 8);
+    QFont buttonFont(lFont, 9);
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(4, 4, 4, 4);
+    mainLayout->setSpacing(2);
+
+    // 🔹 카메라 선택 섹션
+    QWidget *cameraSection = new QWidget();
+    cameraSection->setFixedHeight(28);
+    // cameraSection->setStyleSheet("border: 1px dashed #666;");
+    QHBoxLayout *cameraLayout = new QHBoxLayout(cameraSection);
+    cameraLayout->setContentsMargins(2, 2, 2, 2);
+    cameraLayout->setSpacing(1);
+
+    QLabel *cameraLabel = new QLabel("카메라 선택");
+    cameraLabel->setStyleSheet("color: white;");
+    cameraLabel->setFont(labelFont);
+
     cameraSelector = new QComboBox();
     for (const CameraInfo &cam : cameraList) {
         cameraSelector->addItem(QString("%1 (%2)").arg(cam.name, cam.ip));
     }
+    cameraSelector->setFont(comboFont);
     cameraSelector->setStyleSheet(R"(
         QComboBox {
             background-color: #404040;
@@ -30,21 +56,38 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
             padding: 4px;
         }
     )");
-    mainLayout->addWidget(cameraSelector);
 
-    // 🔹 슬라이더 라벨 + 현재 값
-    QHBoxLayout *topLayout = new QHBoxLayout();
+    cameraLayout->addWidget(cameraLabel);
+    cameraLayout->addWidget(cameraSelector);
+    mainLayout->addWidget(cameraSection);
+
+    // 🔹 밝기 레이블 + 현재값
+    QWidget *labelSection = new QWidget();
+    labelSection->setFixedHeight(24);
+    // labelSection->setStyleSheet("border: 1px dashed #666;");
+    QHBoxLayout *topLayout = new QHBoxLayout(labelSection);
+    topLayout->setContentsMargins(2, 2, 2, 2);
+    topLayout->setSpacing(1);
+
     QLabel *label = new QLabel("밝기 (-255 ~ 255):");
     valueLabel = new QLabel("0");
     label->setStyleSheet("color: white;");
     valueLabel->setStyleSheet("color: orange; font-weight: bold;");
+    label->setFont(labelFont);
+    valueLabel->setFont(valueFont);
+
     topLayout->addWidget(label);
     topLayout->addStretch();
     topLayout->addWidget(valueLabel);
-
-    mainLayout->addLayout(topLayout);
+    mainLayout->addWidget(labelSection);
 
     // 🔹 슬라이더
+    QWidget *sliderSection = new QWidget();
+    sliderSection->setFixedHeight(28);
+    // sliderSection->setStyleSheet("border: 1px dashed #666;");
+    QVBoxLayout *sliderLayout = new QVBoxLayout(sliderSection);
+    sliderLayout->setContentsMargins(4, 4, 4, 4);
+
     slider = new QSlider(Qt::Horizontal);
     slider->setRange(-255, 255);
     slider->setValue(0);
@@ -69,19 +112,25 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
         valueLabel->setText(QString::number(val));
     });
 
-    mainLayout->addWidget(slider);
+    sliderLayout->addWidget(slider);
+    mainLayout->addWidget(sliderSection);
 
-    // 🔹 슬라이더 하단 범위 표시
-    QHBoxLayout *rangeLayout = new QHBoxLayout();
+    // 🔹 슬라이더 범위 표시
+    QWidget *rangeSection = new QWidget();
+    // rangeSection->setStyleSheet("border: 1px dashed #666;");
+    rangeSection->setFixedHeight(18);
+
+    QHBoxLayout *rangeLayout = new QHBoxLayout(rangeSection);
+    rangeLayout->setContentsMargins(0, 0, 0, 0);
+    rangeLayout->setSpacing(0);
+
     QLabel *minLabel = new QLabel("-255");
     QLabel *midLabel = new QLabel("0");
     QLabel *maxLabel = new QLabel("+255");
 
-    QFont labelFont;
-    labelFont.setPointSize(9);
-    minLabel->setFont(labelFont);
-    midLabel->setFont(labelFont);
-    maxLabel->setFont(labelFont);
+    minLabel->setFont(rangeFont);
+    midLabel->setFont(rangeFont);
+    maxLabel->setFont(rangeFont);
 
     minLabel->setStyleSheet("color: gray;");
     midLabel->setStyleSheet("color: gray;");
@@ -90,19 +139,26 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
     rangeLayout->addWidget(minLabel, 1);
     rangeLayout->addWidget(midLabel, 1, Qt::AlignHCenter);
     rangeLayout->addWidget(maxLabel, 1, Qt::AlignRight);
-
-    mainLayout->addLayout(rangeLayout);
+    mainLayout->addWidget(rangeSection);
 
     // 🔹 적용 버튼
+    QWidget *buttonSection = new QWidget();
+    buttonSection->setFixedHeight(36);
+    // buttonSection->setStyleSheet("border: 1px dashed #666;");
+    QHBoxLayout *buttonLayout = new QHBoxLayout(buttonSection);
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
+    buttonLayout->addStretch();
+
     QPushButton *okBtn = new QPushButton("적용");
-    okBtn->setFixedHeight(30);
+    okBtn->setFixedHeight(28);
+    okBtn->setFont(buttonFont);
     okBtn->setStyleSheet(R"(
         QPushButton {
             background-color: transparent;
             color: #f37321;
             border: 1px solid #f37321;
             border-radius: 4px;
-            padding: 6px 12px;
+            padding: 4px 10px;
         }
         QPushButton:hover {
             background-color: #f37321;
@@ -118,5 +174,7 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
         accept();
     });
 
-    mainLayout->addWidget(okBtn);
+    buttonLayout->addWidget(okBtn);
+    buttonLayout->addStretch();
+    mainLayout->addWidget(buttonSection);
 }

@@ -13,5 +13,6 @@
         <file>fonts/06HanwhaGothicL.ttf</file>
         <file>fonts/07HanwhaGothicEL.ttf</file>
         <file>fonts/08HanwhaGothicT.ttf</file>
+        <file>icons/brightness_control.png</file>
     </qresource>
 </RCC>

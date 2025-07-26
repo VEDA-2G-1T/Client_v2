@@ -173,7 +173,7 @@ void MainWindow::setupCameraList() {
         };
 
         QPushButton *cameraButton = createIconButton(":/resources/icons/camera_registration.png", "카메라 등록");
-        QPushButton *settingsButton = createIconButton(":/resources/icons/settings.png", "설정");
+        QPushButton *settingsButton = createIconButton(":/resources/icons/brightness_control.png", "설정");
         QPushButton *healthButton = createIconButton(":/resources/icons/health_check.png", "헬시 체크");
 
         iconLayout->addWidget(cameraButton);
