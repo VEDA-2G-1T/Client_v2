@@ -28,6 +28,7 @@
 #include <QNetworkReply>
 #include <QJsonArray>
 #include <algorithm>
+#include <QFontDatabase>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -88,13 +89,36 @@ void MainWindow::setupTopBar() {
     topBar->setFixedHeight(50);
     QHBoxLayout *layout = new QHBoxLayout(topBar);
 
-    QLabel *logoLabel = new QLabel("🛡 Smart SafetyNet");
-    logoLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: orange;");
+    int idB = QFontDatabase::addApplicationFont(":/resources/fonts/01HanwhaB.ttf");
+    int idR = QFontDatabase::addApplicationFont(":/resources/fonts/02HanwhaR.ttf");
+    int idL = QFontDatabase::addApplicationFont(":/resources/fonts/03HanwhaL.ttf");
+    int gidL = QFontDatabase::addApplicationFont(":/resources/fonts/06HanwhaGothicL.ttf");
+
+    QString fontB = QFontDatabase::applicationFontFamilies(idB).at(0);
+    QString fontR = QFontDatabase::applicationFontFamilies(idR).at(0);
+    QString fontL = QFontDatabase::applicationFontFamilies(idL).at(0);
+    QString gfontL = QFontDatabase::applicationFontFamilies(gidL).at(0);
+
+    QLabel *logoLabel = new QLabel("Smart SafetyNet");
+    logoLabel->setFont(QFont(fontB, 20));  // 굵은 타이틀
+    logoLabel->setStyleSheet("color: #f37321;");
 
     timeLabel = new QLabel();
-    timeLabel->setStyleSheet("font-size: 14px; color: white;");
+    timeLabel->setFont(QFont(gfontL, 10));
+    timeLabel->setStyleSheet("color: white;");
 
     QPushButton *closeButton = new QPushButton("종료");
+    closeButton->setFixedSize(50, 30);  // 너비 60px, 높이 36px
+    closeButton->setFont(QFont(gfontL, 8));
+    closeButton->setStyleSheet(R"(
+        QPushButton {
+            background-color: #222;
+            color: #f37321;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 4px 10px;
+        }
+    )");
 
     connect(closeButton, &QPushButton::clicked, this, &QWidget::close);
 
@@ -294,16 +318,21 @@ void MainWindow::refreshCameraListItems() {
                                 widget->deleteLater();
                                 qDebug() << "[타일 제거] 위치:" << row << col;
                                 // ✅ 자리 복구용 placeholder 생성
+                                static int id = QFontDatabase::addApplicationFont(":/resources/fonts/02HanwhaR.ttf");
+                                static QString fontR = QFontDatabase::applicationFontFamilies(id).at(0);
+                                QFont cameraFont(fontR, 14);
+
                                 QLabel *placeholder = new QLabel(QString("CAMERA #%1").arg(row * 3 + col + 1));
+                                placeholder->setFont(cameraFont);  // ✅ 여기에 추가!
+
                                 placeholder->setObjectName("placeholder");
                                 placeholder->setAlignment(Qt::AlignCenter);
                                 placeholder->setMinimumSize(320, 240);
                                 placeholder->setStyleSheet(R"(
                                     background-color: rgba(0, 0, 0, 180);
                                     color: white;
-                                    font-weight: bold;
                                     border-radius: 5px;
-                                    font-size: 12px;
+                                    font-size: 14px;
                                 )");
                                 grid->addWidget(placeholder, row, col);
                             }
@@ -350,6 +379,11 @@ void MainWindow::setupVideoGrid() {
         {{2, 0}, "CAMERA #5"}
     };
 
+    // 🔹 폰트 등록 (반복되지 않도록 static으로)
+    static int id = QFontDatabase::addApplicationFont(":/resources/fonts/02HanwhaR.ttf");
+    static QString fontR = QFontDatabase::applicationFontFamilies(id).at(0);
+    QFont cameraFont(fontR, 14);  // 크기 원하는 대로 조절
+
     const QSize tileMinSize(320, 240);
     for (int row : {0, 1, 2}) {
         for (int col : {0, 1, 2}) {
@@ -359,6 +393,7 @@ void MainWindow::setupVideoGrid() {
 
             QString labelText = cameraLabels.value({row, col}, QString("(%1,%2)").arg(row).arg(col));
             QLabel *tile = new QLabel(labelText);
+            tile->setFont(cameraFont);
             tile->setObjectName("placeholder");  // ✅ 자리 표시자임을 명시
             tile->setAutoFillBackground(true);
             tile->setStyleSheet(R"(
@@ -366,8 +401,7 @@ void MainWindow::setupVideoGrid() {
                 color: white;
                 padding: 3px 8px;
                 border-radius: 5px;
-                font-size: 12px;
-                font-weight: bold;
+                font-size: 14px;
             )");
             tile->setAlignment(Qt::AlignCenter);
             tile->setMinimumSize(tileMinSize);
@@ -424,24 +458,6 @@ void MainWindow::setupEventLog() {
     QHBoxLayout *headerLayout = new QHBoxLayout(headerWidget);
     headerLayout->setContentsMargins(0, 0, 0, 0);   // 좌우 여백 제거
     headerLayout->setSpacing(0);                    // 버튼 간 여백 제거
-
-    /*
-    viewAllLogsButton = new QPushButton("Event Search");
-    viewAllLogsButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);  // 전체 너비
-    viewAllLogsButton->setStyleSheet(R"(
-        QPushButton {
-            background-color: transparent;
-            color: white;
-            border: none;
-            font-size: 18px;
-            font-weight: bold;
-            padding: 10px 0px;
-        }
-        QPushButton:hover {
-            background-color: #f37321;
-        }
-    )");
-    */
 
     viewAllLogsButton = new QPushButton();
     viewAllLogsButton->setIcon(QIcon(":/resources/icons/search.png"));  // 리소스 등록 필요
@@ -661,26 +677,26 @@ void MainWindow::onSocketMessageReceived(const QString &message)
                 popup->setWindowTitle("지속적인 PPE 위반");
                 popup->setModal(false);
                 popup->setStyleSheet(R"(
-        QDialog {
-            background-color: #2b2b2b;
-            color: white;
-        }
-        QLabel {
-            color: white;
-            font-size: 13px;
-        }
-        QPushButton {
-            background-color: #444;
-            color: white;
-            border: 1px solid #666;
-            border-radius: 4px;
-            padding: 4px 12px;
-            font-size: 12px;
-        }
-        QPushButton:hover {
-            background-color: #666;
-        }
-    )");
+                    QDialog {
+                        background-color: #2b2b2b;
+                        color: white;
+                    }
+                    QLabel {
+                        color: white;
+                        font-size: 13px;
+                    }
+                    QPushButton {
+                        background-color: #444;
+                        color: white;
+                        border: 1px solid #666;
+                        border-radius: 4px;
+                        padding: 4px 12px;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #666;
+                    }
+                )");
 
                 QVBoxLayout *layout = new QVBoxLayout(popup);
 

@@ -33,6 +33,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         logitemwidget.h logitemwidget.cpp
         loghistorydialog.h loghistorydialog.cpp
         logentry.h
+        fonts/01HanwhaB.ttf fonts/02HanwhaR.ttf fonts/03HanwhaL.ttf
+        fonts/04HanwhaGothicB.ttf fonts/05HanwhaGothicR.ttf fonts/06HanwhaGothicL.ttf fonts/07HanwhaGothicEL.ttf fonts/08HanwhaGothicT.ttf
     )
 else()
     if(ANDROID)

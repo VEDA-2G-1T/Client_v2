@@ -5,5 +5,13 @@
         <file>icons/settings.png</file>
         <file>icons/delete.png</file>
         <file>icons/search.png</file>
+        <file>fonts/01HanwhaB.ttf</file>
+        <file>fonts/02HanwhaR.ttf</file>
+        <file>fonts/03HanwhaL.ttf</file>
+        <file>fonts/04HanwhaGothicB.ttf</file>
+        <file>fonts/05HanwhaGothicR.ttf</file>
+        <file>fonts/06HanwhaGothicL.ttf</file>
+        <file>fonts/07HanwhaGothicEL.ttf</file>
+        <file>fonts/08HanwhaGothicT.ttf</file>
     </qresource>
 </RCC>

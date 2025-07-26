@@ -1,36 +1,31 @@
 #include "cameraitemwidget.h"
+#include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QFontDatabase>
 
-/*
 CameraItemWidget::CameraItemWidget(const CameraInfo &info, QWidget *parent)
     : QWidget(parent), camera(info)
 {
-    label = new QLabel(QString("%1 (%2:%3)").arg(info.name, info.ip, info.port));
+    // ✅ 폰트 등록
+    static int gidL = QFontDatabase::addApplicationFont(":/resources/fonts/06HanwhaGothicL.ttf");
+    static int gidR = QFontDatabase::addApplicationFont(":/resources/fonts/05HanwhaGothicR.ttf");
+    QString gfontL = QFontDatabase::applicationFontFamilies(gidL).value(0);
+    QString gfontR = QFontDatabase::applicationFontFamilies(gidR).value(0);
+
+    QFont labelFont(gfontL, 10);
+    QFont comboFont(gfontR, 8);
+
+    // ✅ 라벨: 이름 (IP)
+    label = new QLabel(QString("%1 (%2)").arg(info.name, info.ip));
+    label->setFont(labelFont);
     label->setStyleSheet("color: white;");
 
-    comboBox = new QComboBox();
-    comboBox->addItems({"Raw", "Blur", "Detect", "Trespass", "Fall"});
-    comboBox->setFixedWidth(100);
-    comboBox->setStyleSheet(R"(
-        QComboBox {
-            background-color: #404040;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #2b2b2b;
-            color: white;
-            selection-background-color: #505050;
-            selection-color: white;
-        }
-    )");
-
+    // ✅ 삭제 버튼
     removeButton = new QPushButton();
-    removeButton->setIcon(QIcon(":/resources/icons/delete.png")); // 아이콘 경로는 예시입니다
     removeButton->setToolTip("카메라 삭제");
+    removeButton->setIcon(QIcon(":/resources/icons/delete.png"));
+    removeButton->setIconSize(QSize(16, 16));
     removeButton->setFixedSize(24, 24);
     removeButton->setStyleSheet(R"(
         QPushButton {
@@ -42,29 +37,12 @@ CameraItemWidget::CameraItemWidget(const CameraInfo &info, QWidget *parent)
         }
     )");
 
-    connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &CameraItemWidget::onModeChanged);
+    connect(removeButton, &QPushButton::clicked, this, &CameraItemWidget::onRemoveClicked);
 
-    connect(removeButton, &QPushButton::clicked,
-            this, &CameraItemWidget::onRemoveClicked);
-
-    QHBoxLayout *layout = new QHBoxLayout(this);
-    layout->addWidget(label);
-    layout->addStretch();
-    layout->addWidget(comboBox);
-    layout->addWidget(removeButton); // ✅ 추가
-    layout->setContentsMargins(5, 2, 5, 2);
-}
-*/
-
-CameraItemWidget::CameraItemWidget(const CameraInfo &info, QWidget *parent)
-    : QWidget(parent), camera(info)
-{
-    label = new QLabel(QString("%1 (%2:%3)").arg(info.name, info.ip, info.port));
-    label->setStyleSheet("color: white;");
-
+    // ✅ 모드 드롭다운
     comboBox = new QComboBox();
     comboBox->addItems({"Raw", "Blur", "Detect", "Trespass", "Fall"});
+    comboBox->setFont(comboFont);
     comboBox->setFixedWidth(100);
     comboBox->setStyleSheet(R"(
         QComboBox {
@@ -78,34 +56,29 @@ CameraItemWidget::CameraItemWidget(const CameraInfo &info, QWidget *parent)
             background-color: #2b2b2b;
             color: white;
             selection-background-color: #505050;
-            selection-color: white;
-        }
-    )");
-
-    // ✅ 삭제 버튼
-    removeButton = new QPushButton();
-    removeButton->setToolTip("카메라 삭제");
-    removeButton->setIcon(QIcon(":/resources/icons/delete.png"));  // 리소스 등록 필요
-    removeButton->setIconSize(QSize(16, 16));
-    removeButton->setFixedSize(24, 24);
-    removeButton->setStyleSheet(R"(
-        QPushButton {
-            background-color: transparent;
-            border: none;
         }
     )");
 
     connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &CameraItemWidget::onModeChanged);
-    connect(removeButton, &QPushButton::clicked,
-            this, &CameraItemWidget::onRemoveClicked);
 
-    QHBoxLayout *layout = new QHBoxLayout(this);
-    layout->addWidget(label);
-    layout->addStretch();
-    layout->addWidget(comboBox);
-    layout->addWidget(removeButton);
-    layout->setContentsMargins(5, 2, 5, 2);
+    // ✅ 상단: 라벨 + 삭제 버튼
+    QHBoxLayout *topLayout = new QHBoxLayout();
+    topLayout->addWidget(label);
+    topLayout->addStretch();
+    topLayout->addWidget(removeButton);
+
+    // ✅ 하단: 모드 드롭다운
+    QHBoxLayout *bottomLayout = new QHBoxLayout();
+    bottomLayout->addWidget(comboBox);
+    bottomLayout->addStretch();
+
+    // ✅ 전체 수직 배치
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->addLayout(topLayout);
+    mainLayout->addLayout(bottomLayout);
+    mainLayout->setContentsMargins(5, 2, 5, 2);
+    mainLayout->setSpacing(4);
 }
 
 void CameraItemWidget::onModeChanged(int index)
@@ -116,7 +89,7 @@ void CameraItemWidget::onModeChanged(int index)
 
 void CameraItemWidget::onRemoveClicked()
 {
-    emit removeRequested(camera);  // ✅ 카메라 제거 요청
+    emit removeRequested(camera);
 }
 
 CameraInfo CameraItemWidget::getCameraInfo() const

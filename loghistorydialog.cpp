@@ -8,6 +8,7 @@
 #include <QPixmap>
 #include <QNetworkReply>
 #include <QUrl>
+#include <QFontDatabase>
 
 LogHistoryDialog::LogHistoryDialog(const QVector<LogEntry> &logs, QWidget *parent)
     : QDialog(parent)
@@ -24,13 +25,11 @@ LogHistoryDialog::LogHistoryDialog(const QVector<LogEntry> &logs, QWidget *paren
         }
         QLabel {
             font-size: 16px;
-            font-weight: bold;
-            color: orange;
+            color: #f37321;
         }
         QHeaderView::section {
             background-color: #2b2b2b;
             color: white;
-            font-weight: bold;
             border-bottom: 1px solid #555;
         }
         QTableWidget {
@@ -43,6 +42,19 @@ LogHistoryDialog::LogHistoryDialog(const QVector<LogEntry> &logs, QWidget *paren
 
 void LogHistoryDialog::setupUI()
 {
+    int idB = QFontDatabase::addApplicationFont(":/resources/fonts/01HanwhaB.ttf");
+    int gidR = QFontDatabase::addApplicationFont(":/resources/fonts/05HanwhaGothicR.ttf");
+    int gidL = QFontDatabase::addApplicationFont(":/resources/fonts/06HanwhaGothicL.ttf");
+
+    QString fontB = QFontDatabase::applicationFontFamilies(idB).at(0);
+    QString gfontR = QFontDatabase::applicationFontFamilies(gidR).at(0);
+    QString gfontL = QFontDatabase::applicationFontFamilies(gidL).at(0);
+
+    QFont titleFont(fontB, 15);
+    QFont tableFont(gfontR, 10);
+    QFont buttonFont(gfontL, 8);
+    QFont previewFont(gfontR, 15);
+
     // 🔹 전체를 감싸는 수직 레이아웃
     QVBoxLayout *outerLayout = new QVBoxLayout(this);
     outerLayout->setContentsMargins(5, 5, 0, 0);
@@ -51,7 +63,11 @@ void LogHistoryDialog::setupUI()
     // 🔹 상단: 제목 + 닫기 버튼 (수평)
     QHBoxLayout *topLayout = new QHBoxLayout();
     QLabel *title = new QLabel("Event Log History");
+    title->setFont(titleFont);  // ✅ 타이틀
+
     QPushButton *closeButton = new QPushButton("닫기");
+    closeButton->setFont(buttonFont);  // ✅ 버튼
+
     closeButton->setFixedSize(60, 28);
     topLayout->addWidget(title);
     topLayout->addStretch();
@@ -65,6 +81,8 @@ void LogHistoryDialog::setupUI()
     // 좌측 로그 테이블
     QVBoxLayout *leftLayout = new QVBoxLayout();
     logTable = new QTableWidget(this);
+    logTable->setFont(tableFont);  // ✅ 테이블 전체
+
     logTable->setColumnCount(5);
     logTable->setHorizontalHeaderLabels({"Time", "Camera", "Function", "Event", "ImageURL"});
     logTable->setColumnHidden(4, true);
@@ -86,9 +104,11 @@ void LogHistoryDialog::setupUI()
     contentLayout->addLayout(leftLayout, 2);
 
     // 우측 이미지 프리뷰
-    imagePreviewLabel = new QLabel("🖼️ 로그를 선택하세요");
+    imagePreviewLabel = new QLabel("Select Event Log");
+    imagePreviewLabel->setFont(previewFont);  // ✅ 이미지 안내
+
     imagePreviewLabel->setAlignment(Qt::AlignCenter);
-    imagePreviewLabel->setMinimumWidth(400);  // 너비 고정
+    imagePreviewLabel->setMinimumWidth(320);  // 너비 고정
     imagePreviewLabel->setStyleSheet("background-color: #1e1e1e; border: 1px solid #555;");
     contentLayout->addWidget(imagePreviewLabel, 1);
 
@@ -124,14 +144,34 @@ void LogHistoryDialog::setupUI()
 
 void LogHistoryDialog::populateTable(const QVector<LogEntry> &logs)
 {
+    int gidR = QFontDatabase::addApplicationFont(":/resources/fonts/05HanwhaGothicR.ttf");
+    QString gfontR = QFontDatabase::applicationFontFamilies(gidR).at(0);
+    QFont tableContentsFont(gfontR, 8);
+
     logTable->setRowCount(logs.size());
     int row = 0;
-    for (const LogEntry &entry : logs) {
-        logTable->setItem(row, 0, new QTableWidgetItem(entry.timestamp));
-        logTable->setItem(row, 1, new QTableWidgetItem(entry.cameraName));
-        logTable->setItem(row, 2, new QTableWidgetItem(entry.function));
-        logTable->setItem(row, 3, new QTableWidgetItem(entry.event));
-        logTable->setItem(row, 4, new QTableWidgetItem(entry.imageUrl));
-        ++row;
+    for (int row = 0; row < logs.size(); ++row) {
+        const LogEntry &entry = logs[row];
+
+        QTableWidgetItem *item0 = new QTableWidgetItem(entry.timestamp);
+        item0->setFont(tableContentsFont);
+        logTable->setItem(row, 0, item0);
+
+        QTableWidgetItem *item1 = new QTableWidgetItem(entry.cameraName);
+        item1->setFont(tableContentsFont);
+        logTable->setItem(row, 1, item1);
+
+        QTableWidgetItem *item2 = new QTableWidgetItem(entry.function);
+        item2->setFont(tableContentsFont);
+        logTable->setItem(row, 2, item2);
+
+        QTableWidgetItem *item3 = new QTableWidgetItem(entry.event);
+        item3->setFont(tableContentsFont);
+        logTable->setItem(row, 3, item3);
+
+        QTableWidgetItem *item4 = new QTableWidgetItem(entry.imageUrl);
+        item4->setFont(tableContentsFont);
+        logTable->setItem(row, 4, item4);
     }
+
 }
