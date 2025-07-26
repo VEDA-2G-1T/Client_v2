@@ -62,15 +62,21 @@ CameraItemWidget::CameraItemWidget(const CameraInfo &info, QWidget *parent)
     connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &CameraItemWidget::onModeChanged);
 
+    // ✅ 상태 표시 라벨
+    statusLabel = new QLabel("");
+    statusLabel->setStyleSheet("color: lightgray; font-size: 10px;");
+    statusLabel->setFixedWidth(180);
+
     // ✅ 상단: 라벨 + 삭제 버튼
     QHBoxLayout *topLayout = new QHBoxLayout();
     topLayout->addWidget(label);
     topLayout->addStretch();
     topLayout->addWidget(removeButton);
 
-    // ✅ 하단: 모드 드롭다운
+    // ✅ 하단: 드롭다운 + 상태 라벨
     QHBoxLayout *bottomLayout = new QHBoxLayout();
     bottomLayout->addWidget(comboBox);
+    bottomLayout->addWidget(statusLabel);
     bottomLayout->addStretch();
 
     // ✅ 전체 수직 배치
@@ -96,3 +102,27 @@ CameraInfo CameraItemWidget::getCameraInfo() const
 {
     return camera;
 }
+
+/*
+// ✅ 상태 표시 라벨 텍스트/색상 변경 함수
+void CameraItemWidget::updateHealthStatus(const QString &text, const QString &color)
+{
+    statusLabel->setText(text);
+    statusLabel->setStyleSheet(QString("color: %1; font-size: 10px;").arg(color));
+}
+*/
+
+void CameraItemWidget::updateHealthStatus(const QString &text, const QString &color)
+{
+    statusLabel->setText(text);
+
+    // ✅ 폰트 설정
+    static int gid = QFontDatabase::addApplicationFont(":/resources/fonts/05HanwhaGothicR.ttf");
+    static QString fontFamily = QFontDatabase::applicationFontFamilies(gid).value(0);
+    QFont font(fontFamily, 10);
+    statusLabel->setFont(font);
+
+    // ✅ 색상만 스타일로
+    statusLabel->setStyleSheet(QString("color: %1;").arg(color));
+}
+

@@ -268,6 +268,7 @@ void MainWindow::setupCameraList() {
             }
         });
 
+        connect(healthButton, &QPushButton::clicked, this, &MainWindow::performHealthCheck);
 
     }
 
@@ -570,7 +571,13 @@ void MainWindow::sendModeChangeRequest(const QString &mode, const CameraInfo &ca
 void MainWindow::setupWebSocketConnections()
 {
     for (const CameraInfo &camera : cameraList) {
-        if (socketMap.contains(camera.ip)) continue;  // 이미 연결된 경우 생략
+        // 이미 연결된 경우 생략
+        if (socketMap.contains(camera.ip)) {
+            QWebSocket *existing = socketMap[camera.ip];
+            if (existing && existing->state() == QAbstractSocket::ConnectedState) {
+                continue;
+            }
+        }
 
         QWebSocket *socket = new QWebSocket();
 
@@ -578,16 +585,54 @@ void MainWindow::setupWebSocketConnections()
             socket->ignoreSslErrors();
         });
 
-        connect(socket, &QWebSocket::connected, this, &MainWindow::onSocketConnected);
-        connect(socket, &QWebSocket::disconnected, this, &MainWindow::onSocketDisconnected);
-        connect(socket, &QWebSocket::errorOccurred,
-                this, &MainWindow::onSocketErrorOccurred);
+        connect(socket, &QWebSocket::connected, this, [=]() {
+            qDebug() << "[WebSocket 연결 성공]" << camera.ip;
+            socketMap[camera.ip] = socket;  // ✅ 연결 성공 후에 등록
+
+            // 초기 헬시 상태 설정할 수도 있음
+            for (int i = 0; i < listLayout->count(); ++i) {
+                if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                    if (w->getCameraInfo().ip == camera.ip) {
+                        w->updateHealthStatus("🔗 연결됨", "lightblue");
+                        break;
+                    }
+                }
+            }
+        });
+
+        connect(socket, &QWebSocket::disconnected, this, [=]() {
+            qDebug() << "[WebSocket 연결 해제]" << camera.ip;
+            socket->deleteLater();
+            socketMap.remove(camera.ip);
+
+            for (int i = 0; i < listLayout->count(); ++i) {
+                if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                    if (w->getCameraInfo().ip == camera.ip) {
+                        w->updateHealthStatus("❌ 미연결", "orange");
+                        break;
+                    }
+                }
+            }
+        });
+
+        connect(socket, &QWebSocket::errorOccurred, this, [=](QAbstractSocket::SocketError error) {
+            qWarning() << "[WebSocket 에러]" << camera.ip << error;
+            // 연결 에러가 발생해도 연결 시도는 하되, 상태 업데이트
+            for (int i = 0; i < listLayout->count(); ++i) {
+                if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                    if (w->getCameraInfo().ip == camera.ip) {
+                        w->updateHealthStatus("❌ 연결 실패", "red");
+                        break;
+                    }
+                }
+            }
+        });
+
         connect(socket, &QWebSocket::textMessageReceived,
                 this, &MainWindow::onSocketMessageReceived);
 
         QString wsUrl = QString("wss://%1:8443/ws").arg(camera.ip);
-        socket->open(QUrl(wsUrl));
-        socketMap[camera.ip] = socket;
+        socket->open(QUrl(wsUrl));  // ✅ 연결 시도는 하지만, 등록은 성공 후에만
     }
 }
 
@@ -807,7 +852,6 @@ void MainWindow::onSocketMessageReceived(const QString &message)
         bool buzzer = data["buzzer_on"].toBool();
         bool led = data["led_on"].toBool();
 
-
         QString details = QString("🌡️ 온도: %1°C | 💡 밝기: %2 | 🔔 버저: %3 | 💡 LED: %4")
                               .arg(temp, 0, 'f', 2)
                               .arg(light)
@@ -815,8 +859,19 @@ void MainWindow::onSocketMessageReceived(const QString &message)
                               .arg(led ? "ON" : "OFF");
 
         healthCheckResponded.insert(camera.ip);
-        addLogEntry(camera.name, "Health", "✅ 상태 수신", "", details, camera.ip);
+
+        // ✅ 여기 추가해야 드롭다운 옆에 "✅ 정상"이 뜸!
+        for (int i = 0; i < listLayout->count(); ++i) {
+            QLayoutItem *item = listLayout->itemAt(i);
+            if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(item->widget())) {
+                if (w->getCameraInfo().ip == camera.ip) {
+                    w->updateHealthStatus("✅ 센서 연걸 상태 정상", "lightgreen");
+                    break;
+                }
+            }
+        }
     }
+
 
     else if (type == "mode_change_ack") {
         QString status = obj["status"].toString();
@@ -974,5 +1029,56 @@ void MainWindow::loadInitialLogs()
 
             trySortAndPrint();
         });
+    }
+}
+
+void MainWindow::performHealthCheck()
+{
+    // 🔄 이전 응답 기록 초기화
+    healthCheckResponded.clear();
+
+    for (const CameraInfo &camera : cameraList) {
+        // ✅ 연결 상태까지 확인
+        if (socketMap.contains(camera.ip) &&
+            socketMap[camera.ip]->state() == QAbstractSocket::ConnectedState) {
+
+            QWebSocket *socket = socketMap[camera.ip];
+
+            // ✅ 헬시체크 요청 전송
+            QJsonObject req;
+            req["type"] = "request_stm_status";
+            QJsonDocument doc(req);
+            socket->sendTextMessage(doc.toJson(QJsonDocument::Compact));
+
+            qDebug() << "[헬시 체크 요청 전송됨]" << camera.ip;
+
+            // ✅ ⏳ '확인 중' 표시
+            for (int i = 0; i < listLayout->count(); ++i) {
+                if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                    if (w->getCameraInfo().ip == camera.ip) {
+                        w->updateHealthStatus("⏳ 확인 중", "gray");
+                        break;
+                    }
+                }
+            }
+
+            // ✅ 5초 내 응답 없으면 경고 상태로 업데이트
+            QTimer::singleShot(5000, this, [=]() {
+                if (!healthCheckResponded.contains(camera.ip)) {
+                    for (int i = 0; i < listLayout->count(); ++i) {
+                        if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                            if (w->getCameraInfo().ip == camera.ip) {
+                                w->updateHealthStatus("⚠️ 센서 상태를 점검하세요", "#f37321");
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+
+        } else {
+            // ❌ WebSocket 미연결 상태 → 아무 것도 안 함 (setupWebSocketConnections()에서 이미 표시됨)
+            qDebug() << "[헬시 체크 스킵] 연결 안 된 카메라:" << camera.ip;
+        }
     }
 }

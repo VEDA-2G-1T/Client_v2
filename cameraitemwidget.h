@@ -15,19 +15,23 @@ public:
     explicit CameraItemWidget(const CameraInfo &info, QWidget *parent = nullptr);
     CameraInfo getCameraInfo() const;
 
+    // ✅ 헬시 상태 업데이트용 함수
+    void updateHealthStatus(const QString &text, const QString &color = "lightgray");
+
 signals:
     void modeChanged(const QString &mode, const CameraInfo &camera);
-    void removeRequested(const CameraInfo &camera);  // ✅ 추가
+    void removeRequested(const CameraInfo &camera);
 
 private slots:
     void onModeChanged(int index);
-    void onRemoveClicked(); // ✅ 추가
+    void onRemoveClicked();
 
 private:
     CameraInfo camera;
     QLabel *label;
     QComboBox *comboBox;
-    QPushButton *removeButton; // ✅ 추가
+    QPushButton *removeButton;
+    QLabel *statusLabel;  // ✅ 드롭다운 옆에 헬시 상태 표시용
 };
 
 #endif // CAMERAITEMWIDGET_H
