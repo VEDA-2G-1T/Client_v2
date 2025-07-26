@@ -69,7 +69,7 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
     topLayout->setContentsMargins(2, 2, 2, 2);
     topLayout->setSpacing(1);
 
-    QLabel *label = new QLabel("밝기 (-255 ~ 255):");
+    QLabel *label = new QLabel("밝기 (-255 ~ 255)");
     valueLabel = new QLabel("0");
     label->setStyleSheet("color: white;");
     valueLabel->setStyleSheet("color: orange; font-weight: bold;");
