@@ -849,7 +849,7 @@ void MainWindow::onSocketMessageReceived(const QString &message)
         if (count > 0) {
             QString event = QString("🚷 무단 침입 감지 (%1명)").arg(count);
             QString details = QString("감지 시각: %1 | 침입자 수: %2").arg(ts).arg(count);
-            addLogEntry(camera.name, "Night", event, imagePath, details, camera.ip, ts);  // ✅ 이미지 포함
+            addLogEntry(camera.name, "Trespass", event, imagePath, details, camera.ip, ts);  // ✅ 이미지 포함
         }
     }
 
@@ -1072,7 +1072,7 @@ void MainWindow::loadInitialLogs()
                     imageUrl = QString("https://%1:8443/%2").arg(camera.ip, cleanPath);
                 }
 
-                logEntries.append({camera.name, "Night", event, ts, imageUrl});
+                logEntries.append({camera.name, "Trespass", event, ts, imageUrl});
             }
 
             trySortAndPrint();
