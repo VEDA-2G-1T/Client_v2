@@ -32,9 +32,6 @@ CameraItemWidget::CameraItemWidget(const CameraInfo &info, QWidget *parent)
             background-color: transparent;
             border: none;
         }
-        QPushButton:hover {
-            background-color: #800000;
-        }
     )");
 
     connect(removeButton, &QPushButton::clicked, this, &CameraItemWidget::onRemoveClicked);

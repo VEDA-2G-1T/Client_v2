@@ -633,6 +633,54 @@ void MainWindow::setupWebSocketConnections()
 
         QString wsUrl = QString("wss://%1:8443/ws").arg(camera.ip);
         socket->open(QUrl(wsUrl));  // ✅ 연결 시도는 하지만, 등록은 성공 후에만
+
+        // WebSocket 연결 성공 시 처리
+        connect(socket, &QWebSocket::connected, this, [=]() {
+            qDebug() << "[WebSocket 연결 성공]" << camera.ip;
+            socketMap[camera.ip] = socket;
+
+            // ✅ 연결됨 표시
+            for (int i = 0; i < listLayout->count(); ++i) {
+                if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                    if (w->getCameraInfo().ip == camera.ip) {
+                        w->updateHealthStatus("🔗 연결됨", "lightblue");
+                        break;
+                    }
+                }
+            }
+
+            // ✅ 최초 헬시체크 요청 자동 전송
+            QJsonObject req;
+            req["type"] = "request_stm_status";
+            QJsonDocument doc(req);
+            socket->sendTextMessage(doc.toJson(QJsonDocument::Compact));
+
+            qDebug() << "[헬시체크 자동 요청]" << camera.ip;
+
+            // ⏳ 헬시체크 상태 대기 UI 반영
+            for (int i = 0; i < listLayout->count(); ++i) {
+                if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                    if (w->getCameraInfo().ip == camera.ip) {
+                        w->updateHealthStatus("⏳ 확인 중", "gray");
+                        break;
+                    }
+                }
+            }
+
+            // ⏱️ 5초 내 응답 없으면 경고 표시
+            QTimer::singleShot(5000, this, [=]() {
+                if (!healthCheckResponded.contains(camera.ip)) {
+                    for (int i = 0; i < listLayout->count(); ++i) {
+                        if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                            if (w->getCameraInfo().ip == camera.ip) {
+                                w->updateHealthStatus("⚠️ 센서 상태를 점검하세요", "#f37321");
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+        });
     }
 }
 
