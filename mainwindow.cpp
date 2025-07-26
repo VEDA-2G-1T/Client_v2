@@ -3,6 +3,7 @@
 #include "cameraitemwidget.h"
 #include "cameraregistrationdialog.h"
 #include "logitemwidget.h"
+#include "brightnessdialog.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -266,6 +267,24 @@ void MainWindow::setupCameraList() {
                 loadInitialLogs();
 
             }
+        });
+
+        connect(settingsButton, &QPushButton::clicked, this, [=]() {
+            // ✅ 여기에 넣으면 됨!
+            BrightnessDialog *dialog = new BrightnessDialog(cameraList, this);
+            connect(dialog, &BrightnessDialog::brightnessConfirmed, this, [=](const CameraInfo &cam, int value) {
+                if (socketMap.contains(cam.ip)) {
+                    QWebSocket *sock = socketMap[cam.ip];
+                    if (sock->state() == QAbstractSocket::ConnectedState) {
+                        QJsonObject obj;
+                        obj["type"] = "set_brightness";
+                        obj["value"] = value;
+                        sock->sendTextMessage(QJsonDocument(obj).toJson(QJsonDocument::Compact));
+                        qDebug() << "[밝기 전송]" << cam.name << cam.ip << value;
+                    }
+                }
+            });
+            dialog->exec();
         });
 
         connect(healthButton, &QPushButton::clicked, this, &MainWindow::performHealthCheck);
