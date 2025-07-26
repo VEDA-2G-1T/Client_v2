@@ -4,6 +4,8 @@
 #include <QDialog>
 #include <QTableWidget>
 #include <QVector>
+#include <QLabel>
+#include <QNetworkAccessManager>
 #include "logentry.h"  // ✅ 이 줄 꼭 필요함!
 
 class LogHistoryDialog : public QDialog
@@ -18,6 +20,8 @@ private:
     void populateTable(const QVector<LogEntry> &logs);
 
     QTableWidget *logTable;
+    QLabel *imagePreviewLabel;
+    QNetworkAccessManager *previewManager;
 };
 
 #endif // LOGHISTORYDIALOG_H

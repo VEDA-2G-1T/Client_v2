@@ -4,5 +4,6 @@
         <file>icons/health_check.png</file>
         <file>icons/settings.png</file>
         <file>icons/delete.png</file>
+        <file>icons/search.png</file>
     </qresource>
 </RCC>
