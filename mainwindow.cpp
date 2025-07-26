@@ -425,6 +425,7 @@ void MainWindow::setupEventLog() {
     headerLayout->setContentsMargins(0, 0, 0, 0);   // 좌우 여백 제거
     headerLayout->setSpacing(0);                    // 버튼 간 여백 제거
 
+    /*
     viewAllLogsButton = new QPushButton("Event Search");
     viewAllLogsButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);  // 전체 너비
     viewAllLogsButton->setStyleSheet(R"(
@@ -434,6 +435,23 @@ void MainWindow::setupEventLog() {
             border: none;
             font-size: 18px;
             font-weight: bold;
+            padding: 10px 0px;
+        }
+        QPushButton:hover {
+            background-color: #f37321;
+        }
+    )");
+    */
+
+    viewAllLogsButton = new QPushButton();
+    viewAllLogsButton->setIcon(QIcon(":/resources/icons/search.png"));  // 리소스 등록 필요
+    viewAllLogsButton->setIconSize(QSize(28, 28));  // 적당히 조절 가능
+    viewAllLogsButton->setCursor(Qt::PointingHandCursor);
+    viewAllLogsButton->setToolTip("전체 로그 보기");
+    viewAllLogsButton->setStyleSheet(R"(
+        QPushButton {
+            background-color: transparent;
+            border: none;
             padding: 10px 0px;
         }
         QPushButton:hover {

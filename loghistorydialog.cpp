@@ -41,7 +41,7 @@ LogHistoryDialog::LogHistoryDialog(const QVector<LogEntry> &logs, QWidget *paren
     )");
 }
 
-void LogHistoryDialog::setupUI()
+ void LogHistoryDialog::setupUI()
 {
     QHBoxLayout *mainLayout = new QHBoxLayout(this);
 
