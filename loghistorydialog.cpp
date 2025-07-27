@@ -12,6 +12,7 @@
 #include <QTabWidget>
 #include <QCheckBox>
 #include <QTableWidgetItem>
+#include <QTimer>
 
 LogHistoryDialog::LogHistoryDialog(const QVector<LogEntry> &logs, QWidget *parent)
     : QDialog(parent), allLogs(logs)
@@ -75,15 +76,30 @@ void LogHistoryDialog::setupUI()
 
     // 🔹 체크박스 (좌측)
     QVBoxLayout *filterLayout = new QVBoxLayout();
+
+    totalCheck = new QCheckBox("Total");
+    blurCheck = new QCheckBox("Blur");
     ppeCheck = new QCheckBox("Detect");
     trespassCheck = new QCheckBox("Trespass");
-    ppeCheck->setChecked(true);
-    trespassCheck->setChecked(true);
-    connect(ppeCheck, &QCheckBox::stateChanged, this, &LogHistoryDialog::applyFilter);
-    connect(trespassCheck, &QCheckBox::stateChanged, this, &LogHistoryDialog::applyFilter);
+    fallCheck = new QCheckBox("Fall");
+
+    totalCheck->setChecked(true);
+    blurCheck->setChecked(false);
+    ppeCheck->setChecked(false);
+    trespassCheck->setChecked(false);
+    fallCheck->setChecked(false);
+
+    connect(totalCheck,     &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
+    connect(blurCheck,      &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
+    connect(ppeCheck,       &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
+    connect(trespassCheck,  &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
+    connect(fallCheck,      &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
+
+    filterLayout->addWidget(totalCheck);
+    filterLayout->addWidget(blurCheck);
     filterLayout->addWidget(ppeCheck);
     filterLayout->addWidget(trespassCheck);
-    filterLayout->addStretch();
+    filterLayout->addWidget(fallCheck);
 
     QWidget *filterWidget = new QWidget();
     filterWidget->setLayout(filterLayout);
@@ -113,6 +129,69 @@ void LogHistoryDialog::setupUI()
     // ⬆️ 최종 배치
     outerLayout->addLayout(topLayout);
     outerLayout->addLayout(contentLayout);
+
+    // ✅ Total 체크 → 나머지 끔
+    connect(totalCheck, &QCheckBox::checkStateChanged, this, [=](int state) {
+        if (state == Qt::Checked) {
+            blurCheck->setChecked(false);
+            ppeCheck->setChecked(false);
+            trespassCheck->setChecked(false);
+            fallCheck->setChecked(false);
+        }
+    });
+
+    // ✅ 나머지 중 하나라도 체크 → Total 끔
+    auto disableTotalIfAnyChecked = [=]() {
+        if (blurCheck->isChecked() || ppeCheck->isChecked() || trespassCheck->isChecked() || fallCheck->isChecked()) {
+            totalCheck->blockSignals(true);   // 무한 루프 방지용
+            totalCheck->setChecked(false);
+            totalCheck->blockSignals(false);
+        }
+    };
+
+    auto checkIfAllChecked = [=]() {
+        QTimer::singleShot(0, this, [=]() {
+            bool allChecked = blurCheck->isChecked() &&
+                              ppeCheck->isChecked() &&
+                              trespassCheck->isChecked() &&
+                              fallCheck->isChecked();
+
+            if (allChecked && !totalCheck->isChecked()) {
+                // ✅ 나머지 연결 해제 → Total 체크 → 다시 연결
+                disconnect(totalCheck, nullptr, nullptr, nullptr);
+                totalCheck->blockSignals(true);
+                totalCheck->setChecked(true);
+                totalCheck->blockSignals(false);
+
+                // ✅ Total 체크 → 나머지 해제도 직접 실행 (중복 방지)
+                blurCheck->blockSignals(true); blurCheck->setChecked(false); blurCheck->blockSignals(false);
+                ppeCheck->blockSignals(true);  ppeCheck->setChecked(false);  ppeCheck->blockSignals(false);
+                trespassCheck->blockSignals(true); trespassCheck->setChecked(false); trespassCheck->blockSignals(false);
+                fallCheck->blockSignals(true); fallCheck->setChecked(false); fallCheck->blockSignals(false);
+
+                // ✅ 다시 연결 복구
+                connect(totalCheck, &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
+                connect(totalCheck, &QCheckBox::checkStateChanged, this, [=](int state) {
+                    if (state == Qt::Checked) {
+                        blurCheck->blockSignals(true); blurCheck->setChecked(false); blurCheck->blockSignals(false);
+                        ppeCheck->blockSignals(true);  ppeCheck->setChecked(false);  ppeCheck->blockSignals(false);
+                        trespassCheck->blockSignals(true); trespassCheck->setChecked(false); trespassCheck->blockSignals(false);
+                        fallCheck->blockSignals(true); fallCheck->setChecked(false); fallCheck->blockSignals(false);
+                    }
+                });
+            }
+        });
+    };
+
+    connect(blurCheck,      &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
+    connect(ppeCheck,       &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
+    connect(trespassCheck,  &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
+    connect(fallCheck,      &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
+
+    connect(blurCheck,      &QCheckBox::checkStateChanged, this, checkIfAllChecked);
+    connect(ppeCheck,       &QCheckBox::checkStateChanged, this, checkIfAllChecked);
+    connect(trespassCheck,  &QCheckBox::checkStateChanged, this, checkIfAllChecked);
+    connect(fallCheck,      &QCheckBox::checkStateChanged, this, checkIfAllChecked);
 }
 
 void LogHistoryDialog::populateTabs()
@@ -153,8 +232,13 @@ void LogHistoryDialog::populateTabs()
 void LogHistoryDialog::applyFilter()
 {
     QString selectedCamera = tabWidget->tabText(tabWidget->currentIndex());
-    bool showPPE = ppeCheck->isChecked();
-    bool showTrespass = trespassCheck->isChecked();
+
+    // 🔸 필터 체크박스 상태
+    bool showTotal     = totalCheck->isChecked();
+    bool showBlur      = blurCheck->isChecked();
+    bool showPPE       = ppeCheck->isChecked();
+    bool showTrespass  = trespassCheck->isChecked();
+    bool showFall      = fallCheck->isChecked();
 
     QTableWidget *table = qobject_cast<QTableWidget *>(tabWidget->currentWidget());
     if (!table) return;
@@ -169,10 +253,14 @@ void LogHistoryDialog::applyFilter()
     for (const LogEntry &entry : allLogs) {
         if (selectedCamera != "전체" && entry.cameraName != selectedCamera)
             continue;
-        if (!showPPE && entry.function == "PPE")
-            continue;
-        if (!showTrespass && entry.function == "Trespass")
-            continue;
+
+        // 🔸 Total이 체크되어 있지 않으면 각 항목별 개별 체크
+        if (!showTotal) {
+            if (entry.function == "Blur" && !showBlur) continue;
+            if (entry.function == "PPE" && !showPPE) continue;
+            if (entry.function == "Trespass" && !showTrespass) continue;
+            if (entry.function == "Fall" && !showFall) continue;
+        }
 
         table->insertRow(row);
         auto *item0 = new QTableWidgetItem(entry.timestamp);

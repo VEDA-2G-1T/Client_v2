@@ -26,8 +26,12 @@ private:
     QVector<LogEntry> allLogs;   // 전체 로그
 
     QTabWidget *tabWidget;       // 카메라별 탭
-    QCheckBox *ppeCheck;         // PPE 필터
-    QCheckBox *trespassCheck;    // 무단 침입 필터
+
+    QCheckBox *totalCheck;
+    QCheckBox *blurCheck;
+    QCheckBox *ppeCheck;
+    QCheckBox *trespassCheck;
+    QCheckBox *fallCheck;
 
     QLabel *imagePreviewLabel;   // 우측 이미지 미리보기
     QNetworkAccessManager *previewManager;  // 이미지 요청용
