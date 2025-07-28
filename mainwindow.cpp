@@ -1073,11 +1073,10 @@ void MainWindow::loadInitialLogs()
             replyTrespass->deleteLater();
             if (replyTrespass->error() != QNetworkReply::NoError) return trySortAndPrint();
 
-            QByteArray raw = replyTrespass->readAll();
-            QJsonDocument doc = QJsonDocument::fromJson(raw);
+            QJsonDocument doc = QJsonDocument::fromJson(replyTrespass->readAll());
             if (!doc.isObject()) return trySortAndPrint();
 
-            QJsonArray arr = doc["detections"].toArray();
+            QJsonArray arr = doc["trespass"].toArray();
             for (const QJsonValue &val : arr) {
                 QJsonObject obj = val.toObject();
                 QString ts = obj["timestamp"].toString();
@@ -1085,10 +1084,11 @@ void MainWindow::loadInitialLogs()
                 QString imgPath = obj["image_path"].toString();
 
                 QString event = QString("🚷 무단 침입 감지 (%1명)").arg(count);
+
                 QString imageUrl;
                 if (!imgPath.isEmpty()) {
                     QString cleanPath = imgPath.startsWith("../") ? imgPath.mid(3) : imgPath;
-                    imageUrl = QString("https://%1:8443/%2").arg(camera.ip, cleanPath);
+                    imageUrl = QString("http://%1/%2").arg(camera.ip, cleanPath);
                 }
 
                 logEntries.append({camera.name, "Trespass", event, ts, imageUrl});
@@ -1096,6 +1096,7 @@ void MainWindow::loadInitialLogs()
 
             trySortAndPrint();
         });
+
     }
 }
 

@@ -37,7 +37,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         fonts/04HanwhaGothicB.ttf fonts/05HanwhaGothicR.ttf fonts/06HanwhaGothicL.ttf fonts/07HanwhaGothicEL.ttf fonts/08HanwhaGothicT.ttf
         brightnessdialog.h brightnessdialog.cpp
         clickablelabel.h
-        imageenhancer.h imageenhancer.cpp
+
     )
 else()
     if(ANDROID)
