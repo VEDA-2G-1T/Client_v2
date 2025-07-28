@@ -29,4 +29,5 @@
 [25-07-28]  
 - v0.0.23 : mainwindow, camera registration dialog 심리스화  
 - v0.0.24 : loghistory, brightnessdialog 심리스화  
-- v0.0.25 : Fall 실시간 로그 및 Initial Log 추가
+- v0.0.25 : Fall 실시간 로그 및 Initial Log 추가  
+- v0.0.26 : Event Log History 필터 버그 수정
