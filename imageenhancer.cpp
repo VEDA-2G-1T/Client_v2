@@ -2,27 +2,7 @@
 #include <opencv2/opencv.hpp>
 #include <QImage>
 
-QPixmap ImageEnhancer::enhanceSharpness(const QPixmap &pixmap) {
-    if (pixmap.isNull()) return pixmap;
-
-    QImage qimg = pixmap.toImage().convertToFormat(QImage::Format_RGB888);
-    cv::Mat mat(qimg.height(), qimg.width(), CV_8UC3,
-                (uchar*)qimg.bits(), qimg.bytesPerLine());
-
-    cv::Mat sharpened;
-    cv::Mat kernel = (cv::Mat_<float>(3,3) <<
-                          -1, -1, -1,
-                      -1,  9, -1,
-                      -1, -1, -1);
-    cv::filter2D(mat, sharpened, mat.depth(), kernel);
-
-    QImage resultImg((uchar*)sharpened.data,
-                     sharpened.cols, sharpened.rows,
-                     sharpened.step,
-                     QImage::Format_RGB888);
-    return QPixmap::fromImage(resultImg.copy());
-}
-
+// ✅ CLAHE 대비 향상
 QPixmap ImageEnhancer::enhanceCLAHE(const QPixmap &pixmap) {
     if (pixmap.isNull()) return pixmap;
 
@@ -46,6 +26,30 @@ QPixmap ImageEnhancer::enhanceCLAHE(const QPixmap &pixmap) {
     QImage resultImg((uchar*)result.data,
                      result.cols, result.rows,
                      result.step,
+                     QImage::Format_RGB888);
+    return QPixmap::fromImage(resultImg.copy());
+}
+
+// ✅ 슬라이더 기반 가변 샤프닝
+QPixmap ImageEnhancer::enhanceSharpness(const QPixmap &pixmap, int level) {
+    if (pixmap.isNull()) return pixmap;
+
+    QImage qimg = pixmap.toImage().convertToFormat(QImage::Format_RGB888);
+    cv::Mat mat(qimg.height(), qimg.width(), CV_8UC3,
+                (uchar*)qimg.bits(), qimg.bytesPerLine());
+
+    // level: 0~100 → 강도 매핑 (1.0 ~ 5.0)
+    float alpha = 1.0f + (level / 25.0f);
+
+    cv::Mat blurred;
+    cv::GaussianBlur(mat, blurred, cv::Size(0,0), 3);
+
+    cv::Mat sharp;
+    cv::addWeighted(mat, alpha, blurred, -(alpha - 1.0f), 0, sharp);
+
+    QImage resultImg((uchar*)sharp.data,
+                     sharp.cols, sharp.rows,
+                     sharp.step,
                      QImage::Format_RGB888);
     return QPixmap::fromImage(resultImg.copy());
 }

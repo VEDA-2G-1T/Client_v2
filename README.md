@@ -30,6 +30,7 @@
 - v0.0.23 : mainwindow, camera registration dialog 심리스화  
 - v0.0.24 : loghistory, brightnessdialog 심리스화  
 - v0.0.25 : Fall 실시간 로그 및 Initial Log 추가  
-- v0.0.26 : Event Log History 필터 버그 수정
-- v0.0.27 : 다이얼로그 창 UI 세부 수정
-- v0.0.28 : 간단한 Image Enhancement 기능 구현
+- v0.0.26 : Event Log History 필터 버그 수정  
+- v0.0.27 : 다이얼로그 창 UI 세부 수정  
+- v0.0.28 : 간단한 Image Enhancement 기능 구현  
+- v0.0.29 : Image Enhancement 기능 고도화 (언샤프 마스크(unsharp masking) 기능, 슬라이더 UI)  

@@ -5,7 +5,7 @@
 
 class ImageEnhancer {
 public:
-    static QPixmap enhanceSharpness(const QPixmap &pixmap);
+    static QPixmap enhanceSharpness(const QPixmap &pixmap, int level);
     static QPixmap enhanceCLAHE(const QPixmap &pixmap);
 };
 

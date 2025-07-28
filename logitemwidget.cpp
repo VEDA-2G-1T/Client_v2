@@ -9,8 +9,8 @@
 #include <QMouseEvent>
 #include <QDialog>
 #include <QVBoxLayout>
-#include <QPushButton>
-#include <QHBoxLayout>
+#include <QSlider>
+#include <QLabel>
 
 LogItemWidget::LogItemWidget(const QString &camera,
                              const QString &event,
@@ -76,33 +76,37 @@ LogItemWidget::LogItemWidget(const QString &camera,
                     imgLabel->setAlignment(Qt::AlignCenter);
                     popupLayout->addWidget(imgLabel);
 
-                    // 기본 원본 이미지 표시
-                    imgLabel->setPixmap(pix.scaled(800, 600,
-                                                   Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                    // ✅ 원본 이미지 저장
+                    QPixmap originalPix = pix;
+                    imgLabel->setPixmap(originalPix.scaled(800, 600,
+                                                           Qt::KeepAspectRatio,
+                                                           Qt::SmoothTransformation));
 
-                    // ✅ Enhance 버튼 추가
-                    QPushButton *enhanceBtn = new QPushButton("Enhance Image");
-                    enhanceBtn->setStyleSheet(R"(
-                        QPushButton {
-                            background-color: #444;
-                            color: white;
-                            border: 1px solid #666;
-                            border-radius: 4px;
-                            padding: 6px 12px;
-                        }
-                        QPushButton:hover {
-                            background-color: #f37321;
-                        }
-                    )");
-                    popupLayout->addWidget(enhanceBtn, 0, Qt::AlignCenter);
+                    // ✅ 슬라이더 추가
+                    QLabel *sliderLabel = new QLabel("강도: 50%");
+                    sliderLabel->setStyleSheet("color: white;");
+                    sliderLabel->setAlignment(Qt::AlignCenter);
 
-                    connect(enhanceBtn, &QPushButton::clicked, popup, [=]() {
-                        QPixmap enhanced = ImageEnhancer::enhanceSharpness(pix);
-                        imgLabel->setPixmap(enhanced.scaled(800, 600,
-                                                            Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                    QSlider *enhanceSlider = new QSlider(Qt::Horizontal);
+                    enhanceSlider->setRange(0, 100);
+                    enhanceSlider->setValue(50);
+                    enhanceSlider->setStyleSheet("QSlider { background: #333; }");
+
+                    popupLayout->addWidget(sliderLabel);
+                    popupLayout->addWidget(enhanceSlider);
+
+                    // 슬라이더 값 변경 시 항상 원본 기준으로 보정
+                    connect(enhanceSlider, &QSlider::valueChanged, popup, [=](int val) {
+                        sliderLabel->setText(QString("강도: %1%").arg(val));
+                        if (!originalPix.isNull()) {
+                            QPixmap enhanced = ImageEnhancer::enhanceSharpness(originalPix, val);
+                            imgLabel->setPixmap(enhanced.scaled(800, 600,
+                                                                Qt::KeepAspectRatio,
+                                                                Qt::SmoothTransformation));
+                        }
                     });
 
-                    popup->resize(820, 660);
+                    popup->resize(820, 700);
                     popup->exec();
                 });
 
