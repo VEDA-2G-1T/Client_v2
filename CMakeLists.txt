@@ -13,6 +13,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Multimedia MultimediaWidgets WebSockets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Multimedia MultimediaWidgets WebSockets)
 
+# ✅ OpenCV 경로 직접 지정
+set(OpenCV_DIR "C:/opencv/build/x64/vc16/lib")
+find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
+
 set(PROJECT_SOURCES
     main.cpp
     mainwindow.cpp
@@ -24,20 +29,21 @@ set(PROJECT_SOURCES
     cameraitemwidget.h
     cameraitemwidget.cpp
     resources.qrc
+    logitemwidget.h logitemwidget.cpp
+    loghistorydialog.h loghistorydialog.cpp
+    logentry.h
+    brightnessdialog.h brightnessdialog.cpp
+    clickablelabel.h
+    imageenhancer.h imageenhancer.cpp
+    fonts/01HanwhaB.ttf fonts/02HanwhaR.ttf fonts/03HanwhaL.ttf
+    fonts/04HanwhaGothicB.ttf fonts/05HanwhaGothicR.ttf
+    fonts/06HanwhaGothicL.ttf fonts/07HanwhaGothicEL.ttf fonts/08HanwhaGothicT.ttf
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(QtClientSSN_new-ui
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        logitemwidget.h logitemwidget.cpp
-        loghistorydialog.h loghistorydialog.cpp
-        logentry.h
-        fonts/01HanwhaB.ttf fonts/02HanwhaR.ttf fonts/03HanwhaL.ttf
-        fonts/04HanwhaGothicB.ttf fonts/05HanwhaGothicR.ttf fonts/06HanwhaGothicL.ttf fonts/07HanwhaGothicEL.ttf fonts/08HanwhaGothicT.ttf
-        brightnessdialog.h brightnessdialog.cpp
-        clickablelabel.h
-
     )
 else()
     if(ANDROID)
@@ -51,12 +57,22 @@ else()
     endif()
 endif()
 
-# 필요한 Qt 모듈 라이브러리 연결
+# ✅ Debug/Release 구분해서 OpenCV 라이브러리 선택
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS ">>> Debug 빌드: opencv_world4110d 사용")
+    set(OpenCV_LIBRARIES ${OpenCV_LIBS} "${OpenCV_DIR}/opencv_world4110d.lib")
+else()
+    message(STATUS ">>> Release 빌드: opencv_world4110 사용")
+    set(OpenCV_LIBRARIES ${OpenCV_LIBS} "${OpenCV_DIR}/opencv_world4110.lib")
+endif()
+
+# 필요한 Qt 모듈 + OpenCV 라이브러리 연결
 target_link_libraries(QtClientSSN_new-ui PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Multimedia
     Qt${QT_VERSION_MAJOR}::MultimediaWidgets
     Qt${QT_VERSION_MAJOR}::WebSockets
+    ${OpenCV_LIBRARIES}
 )
 
 # macOS bundle 설정 (필요 시)

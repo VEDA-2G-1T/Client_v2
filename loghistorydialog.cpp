@@ -1,4 +1,5 @@
 #include "loghistorydialog.h"
+#include "imageenhancer.h"
 
 #include <QVBoxLayout>
 #include <QLabel>
@@ -87,7 +88,7 @@ void LogHistoryDialog::setupUI()
     outerLayout->setContentsMargins(5, 5, 0, 10);
     outerLayout->setSpacing(5);
 
-    // ✅ 상단바: 타이틀 + 닫기 버튼
+    // ✅ 상단바
     QWidget *topBar = new QWidget();
     topBar->setFixedHeight(28);
     QHBoxLayout *topLayout = new QHBoxLayout(topBar);
@@ -155,11 +156,8 @@ void LogHistoryDialog::setupUI()
     filterWidget->setStyleSheet("background-color: transparent;");
     filterWidget->setFixedHeight(460);
 
-    // ✅ applyFilter 호출을 지연 처리 (체크 상태가 최종 반영된 후 실행)
     auto delayedApplyFilter = [=]() {
-        QTimer::singleShot(0, this, [=]() {
-            applyFilter();
-        });
+        QTimer::singleShot(0, this, [=]() { applyFilter(); });
     };
 
     connect(totalCheck,     &QCheckBox::checkStateChanged, this, delayedApplyFilter);
@@ -171,23 +169,53 @@ void LogHistoryDialog::setupUI()
     tabWidget = new QTabWidget(this);
     connect(tabWidget, &QTabWidget::currentChanged, this, &LogHistoryDialog::applyFilter);
 
+    // ✅ 이미지 프리뷰 + Enhance 버튼
+    QWidget *previewContainer = new QWidget();
+    QVBoxLayout *previewLayout = new QVBoxLayout(previewContainer);
+    previewLayout->setContentsMargins(0, 0, 0, 0);
+    previewLayout->setSpacing(6);
+
     imagePreviewLabel = new QLabel("Select Event Log");
     imagePreviewLabel->setFont(previewFont);
     imagePreviewLabel->setAlignment(Qt::AlignCenter);
     imagePreviewLabel->setMinimumWidth(320);
     imagePreviewLabel->setStyleSheet("background-color: #1e1e1e; border: 1px solid #555;");
+    previewLayout->addWidget(imagePreviewLabel);
 
+    QPushButton *enhanceBtn = new QPushButton("Enhance");
+    enhanceBtn->setStyleSheet(R"(
+        QPushButton {
+            background-color: #444;
+            color: white;
+            border: 1px solid #666;
+            border-radius: 4px;
+            padding: 6px 12px;
+        }
+        QPushButton:hover {
+            background-color: #f37321;
+        }
+    )");
+    previewLayout->addWidget(enhanceBtn, 0, Qt::AlignCenter);
+
+    connect(enhanceBtn, &QPushButton::clicked, this, [=]() {
+        QPixmap pix = imagePreviewLabel->pixmap();
+        if (!pix.isNull()) {
+            QPixmap enhanced = ImageEnhancer::enhanceCLAHE(pix);
+            imagePreviewLabel->setPixmap(enhanced.scaled(320, 240,
+                                                         Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        }
+    });
 
     previewManager = new QNetworkAccessManager(this);
 
     QHBoxLayout *contentLayout = new QHBoxLayout();
     contentLayout->addWidget(filterWidget, 0);
     contentLayout->addWidget(tabWidget, 3);
-    contentLayout->addWidget(imagePreviewLabel, 1);
+    contentLayout->addWidget(previewContainer, 1);
 
     outerLayout->addLayout(contentLayout);
 
-    // ✅ Total 상태 동기화 로직 유지
+    // Total 체크 동기화
     connect(totalCheck, &QCheckBox::checkStateChanged, this, [=](int state) {
         if (state == Qt::Checked) {
             blurCheck->setChecked(false);
@@ -196,47 +224,8 @@ void LogHistoryDialog::setupUI()
             fallCheck->setChecked(false);
         }
     });
-
-    auto disableTotalIfAnyChecked = [=]() {
-        if (blurCheck->isChecked() || ppeCheck->isChecked() ||
-            trespassCheck->isChecked() || fallCheck->isChecked()) {
-            totalCheck->blockSignals(true);
-            totalCheck->setChecked(false);
-            totalCheck->blockSignals(false);
-        }
-    };
-
-    auto checkIfAllChecked = [=]() {
-        QTimer::singleShot(0, this, [=]() {
-            if (blurCheck->isChecked() && ppeCheck->isChecked() &&
-                trespassCheck->isChecked() && fallCheck->isChecked()) {
-                disconnect(totalCheck, nullptr, nullptr, nullptr);
-                totalCheck->blockSignals(true);
-                totalCheck->setChecked(true);
-                totalCheck->blockSignals(false);
-
-                blurCheck->blockSignals(true); blurCheck->setChecked(false); blurCheck->blockSignals(false);
-                ppeCheck->blockSignals(true);  ppeCheck->setChecked(false);  ppeCheck->blockSignals(false);
-                trespassCheck->blockSignals(true); trespassCheck->setChecked(false); trespassCheck->blockSignals(false);
-                fallCheck->blockSignals(true); fallCheck->setChecked(false); fallCheck->blockSignals(false);
-
-                connect(totalCheck, &QCheckBox::checkStateChanged, this, delayedApplyFilter);
-            }
-        });
-    };
-
-    connect(blurCheck,      &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
-    connect(ppeCheck,       &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
-    connect(trespassCheck,  &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
-    connect(fallCheck,      &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
-
-    connect(blurCheck,      &QCheckBox::checkStateChanged, this, checkIfAllChecked);
-    connect(ppeCheck,       &QCheckBox::checkStateChanged, this, checkIfAllChecked);
-    connect(trespassCheck,  &QCheckBox::checkStateChanged, this, checkIfAllChecked);
-    connect(fallCheck,      &QCheckBox::checkStateChanged, this, checkIfAllChecked);
 }
 
-// ✅ 드래그 이동 지원
 void LogHistoryDialog::mousePressEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
         dragging = true;
@@ -296,7 +285,6 @@ void LogHistoryDialog::applyFilter()
 {
     QString selectedCamera = tabWidget->tabText(tabWidget->currentIndex());
 
-    // 🔸 필터 체크박스 상태
     bool showTotal     = totalCheck->isChecked();
     bool showBlur      = blurCheck->isChecked();
     bool showPPE       = ppeCheck->isChecked();
@@ -317,7 +305,6 @@ void LogHistoryDialog::applyFilter()
         if (selectedCamera != "전체" && entry.cameraName != selectedCamera)
             continue;
 
-        // 🔸 Total이 체크되어 있지 않으면 각 항목별 개별 체크
         if (!showTotal) {
             if (entry.function == "Blur" && !showBlur) continue;
             if (entry.function == "PPE" && !showPPE) continue;

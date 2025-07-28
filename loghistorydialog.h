@@ -1,6 +1,9 @@
 #ifndef LOGHISTORYDIALOG_H
 #define LOGHISTORYDIALOG_H
 
+#include "logentry.h"  // ✅ 꼭 필요함!
+#include "imageenhancer.h"
+
 #include <QDialog>
 #include <QTableWidget>
 #include <QVector>
@@ -8,7 +11,6 @@
 #include <QTabWidget>
 #include <QCheckBox>
 #include <QNetworkAccessManager>
-#include "logentry.h"  // ✅ 꼭 필요함!
 
 class LogHistoryDialog : public QDialog
 {

@@ -1,5 +1,6 @@
 #include "logitemwidget.h"
 #include "clickablelabel.h"
+#include "imageenhancer.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
@@ -8,6 +9,8 @@
 #include <QMouseEvent>
 #include <QDialog>
 #include <QVBoxLayout>
+#include <QPushButton>
+#include <QHBoxLayout>
 
 LogItemWidget::LogItemWidget(const QString &camera,
                              const QString &event,
@@ -45,7 +48,7 @@ LogItemWidget::LogItemWidget(const QString &camera,
     layout->addWidget(timeLabel);
 
     if (!imageUrl.isEmpty()) {
-        ClickableLabel *thumbLabel = new ClickableLabel();  // ✅ 변경됨
+        ClickableLabel *thumbLabel = new ClickableLabel();
         thumbLabel->setFixedSize(160, 120);
         thumbLabel->setStyleSheet("background-color: #333; border: 1px solid #555;");
         thumbLabel->setCursor(Qt::PointingHandCursor);
@@ -68,12 +71,38 @@ LogItemWidget::LogItemWidget(const QString &camera,
                     popup->setWindowTitle("이미지 미리보기");
                     popup->setStyleSheet("background-color: black;");
                     QVBoxLayout *popupLayout = new QVBoxLayout(popup);
+
                     QLabel *imgLabel = new QLabel();
                     imgLabel->setAlignment(Qt::AlignCenter);
                     popupLayout->addWidget(imgLabel);
 
-                    imgLabel->setPixmap(pix.scaled(800, 600, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-                    popup->resize(820, 620);
+                    // 기본 원본 이미지 표시
+                    imgLabel->setPixmap(pix.scaled(800, 600,
+                                                   Qt::KeepAspectRatio, Qt::SmoothTransformation));
+
+                    // ✅ Enhance 버튼 추가
+                    QPushButton *enhanceBtn = new QPushButton("Enhance Image");
+                    enhanceBtn->setStyleSheet(R"(
+                        QPushButton {
+                            background-color: #444;
+                            color: white;
+                            border: 1px solid #666;
+                            border-radius: 4px;
+                            padding: 6px 12px;
+                        }
+                        QPushButton:hover {
+                            background-color: #f37321;
+                        }
+                    )");
+                    popupLayout->addWidget(enhanceBtn, 0, Qt::AlignCenter);
+
+                    connect(enhanceBtn, &QPushButton::clicked, popup, [=]() {
+                        QPixmap enhanced = ImageEnhancer::enhanceSharpness(pix);
+                        imgLabel->setPixmap(enhanced.scaled(800, 600,
+                                                            Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                    });
+
+                    popup->resize(820, 660);
                     popup->exec();
                 });
 
