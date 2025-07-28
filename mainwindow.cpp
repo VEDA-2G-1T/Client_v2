@@ -824,7 +824,7 @@ void MainWindow::onSocketMessageReceived(const QString &message)
                 popup->setModal(false);
                 popup->setStyleSheet(R"(
                     QDialog {
-                        background-color: #2b2b2b;
+                        background-color: #1e1e1e;
                         color: white;
                     }
                     QLabel {
@@ -847,7 +847,11 @@ void MainWindow::onSocketMessageReceived(const QString &message)
                 QVBoxLayout *layout = new QVBoxLayout(popup);
 
                 // 텍스트 메시지
-                QLabel *textLabel = new QLabel(QString("⚠️ <b>%1</b> 카메라에서<br>PPE 미착용이 <b>연속 4회</b> 감지되었습니다!").arg(camera.name));
+                QLabel *textLabel = new QLabel(
+                    QString("⚠️<br>"
+                            "<b>%1 카메라(구역)</b> 에서<br>"
+                            "PPE 미착용이 <b>연속 4회</b> 감지되었습니다!")
+                        .arg(camera.name));
                 textLabel->setTextFormat(Qt::RichText);
                 textLabel->setWordWrap(true);
                 layout->addWidget(textLabel);

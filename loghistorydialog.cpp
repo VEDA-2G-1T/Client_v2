@@ -20,11 +20,13 @@ LogHistoryDialog::LogHistoryDialog(const QVector<LogEntry> &logs, QWidget *paren
 {
     // ✅ Frameless 적용
     setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
-    setFixedSize(1000, 600);
+    setFixedSize(1200, 700);
     setStyleSheet(R"(
         QDialog {
             background-color: #1e1e1e;
             color: white;
+            border: 2px solid #444;
+            border-radius: 6px;
         }
         QLabel {
             font-size: 16px;
@@ -66,166 +68,6 @@ LogHistoryDialog::LogHistoryDialog(const QVector<LogEntry> &logs, QWidget *paren
     setupUI();
     populateTabs();
 }
-/*
-void LogHistoryDialog::setupUI()
-{
-    int idB = QFontDatabase::addApplicationFont(":/resources/fonts/01HanwhaB.ttf");
-    int gidR = QFontDatabase::addApplicationFont(":/resources/fonts/05HanwhaGothicR.ttf");
-    int gidL = QFontDatabase::addApplicationFont(":/resources/fonts/06HanwhaGothicL.ttf");
-
-    QString fontB = QFontDatabase::applicationFontFamilies(idB).at(0);
-    QString gfontR = QFontDatabase::applicationFontFamilies(gidR).at(0);
-    QString gfontL = QFontDatabase::applicationFontFamilies(gidL).at(0);
-
-    QFont titleFont(fontB, 15);
-    QFont buttonFont(gfontL, 8);
-    QFont previewFont(gfontR, 15);
-
-    QVBoxLayout *outerLayout = new QVBoxLayout(this);
-    outerLayout->setContentsMargins(5, 5, 0, 0);
-    outerLayout->setSpacing(5);
-
-    // ✅ 상단바: 타이틀 + 닫기 버튼
-    QWidget *topBar = new QWidget();
-    topBar->setFixedHeight(28);
-    QHBoxLayout *topLayout = new QHBoxLayout(topBar);
-    topLayout->setContentsMargins(5, 0, 5, 0);
-
-    QLabel *title = new QLabel("Event Log History");
-    title->setFont(titleFont);
-
-    QPushButton *closeBtn = new QPushButton("✕");
-    closeBtn->setFixedSize(24, 24);
-    closeBtn->setStyleSheet(R"(
-        QPushButton {
-            background-color: transparent;
-            color: white;
-            border: none;
-        }
-        QPushButton:hover {
-            color: #f37321;
-        }
-    )");
-    connect(closeBtn, &QPushButton::clicked, this, &QDialog::accept);
-
-    topLayout->addWidget(title);
-    topLayout->addStretch();
-    topLayout->addWidget(closeBtn);
-    outerLayout->addWidget(topBar);
-
-    // 🔹 필터 체크박스
-    QVBoxLayout *filterLayout = new QVBoxLayout();
-
-    totalCheck = new QCheckBox("Total");
-    blurCheck = new QCheckBox("Blur");
-    ppeCheck = new QCheckBox("Detect");
-    trespassCheck = new QCheckBox("Trespass");
-    fallCheck = new QCheckBox("Fall");
-
-    QString checkboxStyle = R"(
-        QCheckBox {
-            color: white;
-            spacing: 6px;
-        }
-        QCheckBox::indicator {
-            width: 14px;
-            height: 14px;
-        }
-    )";
-
-    totalCheck->setStyleSheet(checkboxStyle);
-    blurCheck->setStyleSheet(checkboxStyle);
-    ppeCheck->setStyleSheet(checkboxStyle);
-    trespassCheck->setStyleSheet(checkboxStyle);
-    fallCheck->setStyleSheet(checkboxStyle);
-
-    totalCheck->setChecked(true);
-
-    filterLayout->addWidget(totalCheck);
-    filterLayout->addWidget(blurCheck);
-    filterLayout->addWidget(ppeCheck);
-    filterLayout->addWidget(trespassCheck);
-    filterLayout->addWidget(fallCheck);
-
-    QWidget *filterWidget = new QWidget();
-    filterWidget->setLayout(filterLayout);
-    filterWidget->setFixedWidth(100);
-    filterWidget->setStyleSheet("background-color: transparent;");
-    filterWidget->setFixedHeight(460);
-
-    connect(totalCheck,     &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
-    connect(blurCheck,      &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
-    connect(ppeCheck,       &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
-    connect(trespassCheck,  &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
-    connect(fallCheck,      &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
-
-    tabWidget = new QTabWidget(this);
-    connect(tabWidget, &QTabWidget::currentChanged, this, &LogHistoryDialog::applyFilter);
-
-    imagePreviewLabel = new QLabel("Select Event Log");
-    imagePreviewLabel->setFont(previewFont);
-    imagePreviewLabel->setAlignment(Qt::AlignCenter);
-    imagePreviewLabel->setMinimumWidth(320);
-    imagePreviewLabel->setStyleSheet("background-color: #1e1e1e; border: 1px solid #555;");
-
-    previewManager = new QNetworkAccessManager(this);
-
-    QHBoxLayout *contentLayout = new QHBoxLayout();
-    contentLayout->addWidget(filterWidget, 0);
-    contentLayout->addWidget(tabWidget, 3);
-    contentLayout->addWidget(imagePreviewLabel, 1);
-
-    outerLayout->addLayout(contentLayout);
-
-    // ✅ Total 상태 동기화 로직 유지 (생략 없이)
-    connect(totalCheck, &QCheckBox::checkStateChanged, this, [=](int state) {
-        if (state == Qt::Checked) {
-            blurCheck->setChecked(false);
-            ppeCheck->setChecked(false);
-            trespassCheck->setChecked(false);
-            fallCheck->setChecked(false);
-        }
-    });
-
-    auto disableTotalIfAnyChecked = [=]() {
-        if (blurCheck->isChecked() || ppeCheck->isChecked() ||
-            trespassCheck->isChecked() || fallCheck->isChecked()) {
-            totalCheck->blockSignals(true);
-            totalCheck->setChecked(false);
-            totalCheck->blockSignals(false);
-        }
-    };
-
-    auto checkIfAllChecked = [=]() {
-        QTimer::singleShot(0, this, [=]() {
-            if (blurCheck->isChecked() && ppeCheck->isChecked() &&
-                trespassCheck->isChecked() && fallCheck->isChecked()) {
-                disconnect(totalCheck, nullptr, nullptr, nullptr);
-                totalCheck->blockSignals(true);
-                totalCheck->setChecked(true);
-                totalCheck->blockSignals(false);
-
-                blurCheck->blockSignals(true); blurCheck->setChecked(false); blurCheck->blockSignals(false);
-                ppeCheck->blockSignals(true);  ppeCheck->setChecked(false);  ppeCheck->blockSignals(false);
-                trespassCheck->blockSignals(true); trespassCheck->setChecked(false); trespassCheck->blockSignals(false);
-                fallCheck->blockSignals(true); fallCheck->setChecked(false); fallCheck->blockSignals(false);
-
-                connect(totalCheck, &QCheckBox::checkStateChanged, this, &LogHistoryDialog::applyFilter);
-            }
-        });
-    };
-
-    connect(blurCheck,      &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
-    connect(ppeCheck,       &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
-    connect(trespassCheck,  &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
-    connect(fallCheck,      &QCheckBox::checkStateChanged, this, disableTotalIfAnyChecked);
-
-    connect(blurCheck,      &QCheckBox::checkStateChanged, this, checkIfAllChecked);
-    connect(ppeCheck,       &QCheckBox::checkStateChanged, this, checkIfAllChecked);
-    connect(trespassCheck,  &QCheckBox::checkStateChanged, this, checkIfAllChecked);
-    connect(fallCheck,      &QCheckBox::checkStateChanged, this, checkIfAllChecked);
-}
-*/
 
 void LogHistoryDialog::setupUI()
 {
@@ -242,7 +84,7 @@ void LogHistoryDialog::setupUI()
     QFont previewFont(gfontR, 15);
 
     QVBoxLayout *outerLayout = new QVBoxLayout(this);
-    outerLayout->setContentsMargins(5, 5, 0, 0);
+    outerLayout->setContentsMargins(5, 5, 0, 10);
     outerLayout->setSpacing(5);
 
     // ✅ 상단바: 타이틀 + 닫기 버튼
@@ -334,6 +176,7 @@ void LogHistoryDialog::setupUI()
     imagePreviewLabel->setAlignment(Qt::AlignCenter);
     imagePreviewLabel->setMinimumWidth(320);
     imagePreviewLabel->setStyleSheet("background-color: #1e1e1e; border: 1px solid #555;");
+
 
     previewManager = new QNetworkAccessManager(this);
 
@@ -522,7 +365,7 @@ void LogHistoryDialog::handleRowClick(int row, int)
         QPixmap pix;
         pix.loadFromData(reply->readAll());
         if (!pix.isNull())
-            imagePreviewLabel->setPixmap(pix.scaled(400, 300, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            imagePreviewLabel->setPixmap(pix.scaled(320, 240, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         else
             imagePreviewLabel->setText("❌ 이미지 로드 실패");
         reply->deleteLater();

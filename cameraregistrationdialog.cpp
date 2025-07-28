@@ -22,6 +22,9 @@ CameraRegistrationDialog::CameraRegistrationDialog(QWidget *parent)
         QDialog {
             background-color: #1e1e1e;
             color: white;
+            border: 2px solid #444;
+            border-radius: 6px;
+            color: white;
         }
         QLabel {
             color: white;
