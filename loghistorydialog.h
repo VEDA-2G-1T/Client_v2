@@ -17,6 +17,11 @@ class LogHistoryDialog : public QDialog
 public:
     explicit LogHistoryDialog(const QVector<LogEntry> &logs, QWidget *parent = nullptr);
 
+protected:
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+
 private:
     void setupUI();
     void populateTabs();         // 탭 구성 함수
@@ -35,6 +40,9 @@ private:
 
     QLabel *imagePreviewLabel;   // 우측 이미지 미리보기
     QNetworkAccessManager *previewManager;  // 이미지 요청용
+
+    bool dragging = false;
+    QPoint dragPosition;
 };
 
 #endif // LOGHISTORYDIALOG_H

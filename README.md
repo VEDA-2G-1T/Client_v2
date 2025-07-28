@@ -27,4 +27,5 @@
 - v0.0.22 : Initial Log - Trespass 에러 수정  
   
 [25-07-28]  
-- v0.0.23 : mainwindow, 카메라 등록 다이얼로그 심리스화  
+- v0.0.23 : mainwindow, camera registration dialog 심리스화  
+- v0.0.24 : loghistory, brightnessdialog 심리스화

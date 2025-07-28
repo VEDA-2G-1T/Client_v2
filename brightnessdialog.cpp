@@ -6,15 +6,15 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QComboBox>
+#include <QMouseEvent>
 
 BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *parent)
     : QDialog(parent), cameraList(cameras)
 {
-    setWindowTitle("카메라 밝기 조절");
-    setFixedSize(300, 150);
+    setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);  // ✅ 심리스 다이얼로그
+    setFixedSize(300, 180);
     setStyleSheet("background-color: #2b2b2b; color: white;");
 
-    // 🔹 Hanwha 폰트 등록
     int rid = QFontDatabase::addApplicationFont(":/resources/fonts/05HanwhaGothicR.ttf");
     int lid = QFontDatabase::addApplicationFont(":/resources/fonts/06HanwhaGothicL.ttf");
     QString rFont = QFontDatabase::applicationFontFamilies(rid).at(0);
@@ -30,10 +30,32 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
     mainLayout->setContentsMargins(4, 4, 4, 4);
     mainLayout->setSpacing(2);
 
+    // 🔹 상단 닫기 버튼
+    QWidget *topBar = new QWidget();
+    topBar->setFixedHeight(20);
+    QHBoxLayout *topBarLayout = new QHBoxLayout(topBar);
+    topBarLayout->setContentsMargins(0, 0, 0, 0);
+
+    QPushButton *closeBtn = new QPushButton("✕");
+    closeBtn->setFixedSize(20, 20);
+    closeBtn->setStyleSheet(R"(
+        QPushButton {
+            background-color: transparent;
+            color: white;
+            border: none;
+        }
+        QPushButton:hover {
+            color: #f37321;
+        }
+    )");
+    connect(closeBtn, &QPushButton::clicked, this, &QDialog::reject);
+    topBarLayout->addStretch();
+    topBarLayout->addWidget(closeBtn);
+    mainLayout->addWidget(topBar);
+
     // 🔹 카메라 선택 섹션
     QWidget *cameraSection = new QWidget();
     cameraSection->setFixedHeight(28);
-    // cameraSection->setStyleSheet("border: 1px dashed #666;");
     QHBoxLayout *cameraLayout = new QHBoxLayout(cameraSection);
     cameraLayout->setContentsMargins(2, 2, 2, 2);
     cameraLayout->setSpacing(1);
@@ -64,7 +86,6 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
     // 🔹 밝기 레이블 + 현재값
     QWidget *labelSection = new QWidget();
     labelSection->setFixedHeight(24);
-    // labelSection->setStyleSheet("border: 1px dashed #666;");
     QHBoxLayout *topLayout = new QHBoxLayout(labelSection);
     topLayout->setContentsMargins(2, 2, 2, 2);
     topLayout->setSpacing(1);
@@ -84,7 +105,6 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
     // 🔹 슬라이더
     QWidget *sliderSection = new QWidget();
     sliderSection->setFixedHeight(28);
-    // sliderSection->setStyleSheet("border: 1px dashed #666;");
     QVBoxLayout *sliderLayout = new QVBoxLayout(sliderSection);
     sliderLayout->setContentsMargins(4, 4, 4, 4);
 
@@ -117,9 +137,7 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
 
     // 🔹 슬라이더 범위 표시
     QWidget *rangeSection = new QWidget();
-    // rangeSection->setStyleSheet("border: 1px dashed #666;");
     rangeSection->setFixedHeight(18);
-
     QHBoxLayout *rangeLayout = new QHBoxLayout(rangeSection);
     rangeLayout->setContentsMargins(0, 0, 0, 0);
     rangeLayout->setSpacing(0);
@@ -144,7 +162,6 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
     // 🔹 적용 버튼
     QWidget *buttonSection = new QWidget();
     buttonSection->setFixedHeight(36);
-    // buttonSection->setStyleSheet("border: 1px dashed #666;");
     QHBoxLayout *buttonLayout = new QHBoxLayout(buttonSection);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->addStretch();
@@ -177,4 +194,25 @@ BrightnessDialog::BrightnessDialog(const QVector<CameraInfo> &cameras, QWidget *
     buttonLayout->addWidget(okBtn);
     buttonLayout->addStretch();
     mainLayout->addWidget(buttonSection);
+}
+
+// ✅ 드래그 이동 기능 추가
+void BrightnessDialog::mousePressEvent(QMouseEvent *event) {
+    if (event->button() == Qt::LeftButton) {
+        dragging = true;
+        dragPosition = event->globalPosition().toPoint() - frameGeometry().topLeft();
+        event->accept();
+    }
+}
+void BrightnessDialog::mouseMoveEvent(QMouseEvent *event) {
+    if (dragging && (event->buttons() & Qt::LeftButton)) {
+        move(event->globalPosition().toPoint() - dragPosition);
+        event->accept();
+    }
+}
+void BrightnessDialog::mouseReleaseEvent(QMouseEvent *event) {
+    if (event->button() == Qt::LeftButton) {
+        dragging = false;
+        event->accept();
+    }
 }
