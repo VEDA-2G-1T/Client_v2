@@ -34,6 +34,9 @@ public:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
 
@@ -100,6 +103,9 @@ private:
     QNetworkAccessManager *networkManager;  // ✅ 네트워크 요청용
 
     void performHealthCheck();  // private: 아래에 추가
+
+    QPoint dragPosition;
+    bool dragging = false;
 
 private slots:
     void sendModeChangeRequest(const QString &mode, const CameraInfo &camera);

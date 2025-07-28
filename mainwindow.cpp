@@ -30,11 +30,15 @@
 #include <QJsonArray>
 #include <algorithm>
 #include <QFontDatabase>
+#include <QMouseEvent>
+#include <QToolButton>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle("Smart SafetyNet");
+    setWindowFlags(Qt::FramelessWindowHint);  // ✅ 이 줄 추가
+    setStyleSheet("background-color: #1e1e1e;");  // ✅ 다크 배경 유지
     resize(1460, 720);
 
     QWidget *central = new QWidget(this);
@@ -84,7 +88,7 @@ QPair<int, int> MainWindow::findEmptyVideoSlot() {
 
     return {-1, -1};
 }
-
+/*
 void MainWindow::setupTopBar() {
     topBar = new QWidget();
     topBar->setFixedHeight(50);
@@ -130,6 +134,90 @@ void MainWindow::setupTopBar() {
     layout->addWidget(closeButton);
 
     topBar->setStyleSheet("background-color: #1e1e1e; color: white;");
+
+    QTimer *timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, [=]() {
+        timeLabel->setText(QDateTime::currentDateTime().toString("hh:mm:ss"));
+    });
+    timer->start(1000);
+}
+*/
+
+void MainWindow::setupTopBar() {
+    topBar = new QWidget();
+    topBar->setFixedHeight(50);
+    QHBoxLayout *layout = new QHBoxLayout(topBar);
+    layout->setContentsMargins(10, 0, 10, 0);
+
+    int idB = QFontDatabase::addApplicationFont(":/resources/fonts/01HanwhaB.ttf");
+    int idL = QFontDatabase::addApplicationFont(":/resources/fonts/03HanwhaL.ttf");
+
+    QString fontB = QFontDatabase::applicationFontFamilies(idB).at(0);
+    QString fontL = QFontDatabase::applicationFontFamilies(idL).at(0);
+
+    QLabel *logoLabel = new QLabel("Smart SafetyNet");
+    logoLabel->setFont(QFont(fontB, 20));
+    logoLabel->setStyleSheet("color: #f37321;");
+
+    timeLabel = new QLabel();
+    timeLabel->setFont(QFont(fontL, 10));
+    timeLabel->setStyleSheet("color: white;");
+
+    // ✅ 시스템 버튼 (최소/최대/닫기)
+    QHBoxLayout *sysBtnLayout = new QHBoxLayout();
+    sysBtnLayout->setSpacing(4);
+    sysBtnLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto createSysButton = [](const QString &iconPath) -> QToolButton* {
+        QToolButton *btn = new QToolButton();
+        btn->setIcon(QIcon(iconPath));
+        btn->setIconSize(QSize(16, 16));
+        btn->setFixedSize(28, 24);
+        btn->setStyleSheet(R"(
+            QToolButton {
+                border: none;
+                background-color: transparent;
+            }
+            QToolButton:hover {
+                background-color: #f37321;
+            }
+        )");
+        return btn;
+    };
+
+    QToolButton *minimizeBtn = createSysButton(":/resources/icons/window_minimize.png");
+    QToolButton *maximizeBtn = createSysButton(":/resources/icons/window_maximize.png");
+    QToolButton *closeBtn    = createSysButton(":/resources/icons/window_close.png");
+
+    sysBtnLayout->addWidget(minimizeBtn);
+    sysBtnLayout->addWidget(maximizeBtn);
+    sysBtnLayout->addWidget(closeBtn);
+
+    // ✅ 버튼 기능 연결
+    connect(minimizeBtn, &QToolButton::clicked, this, &QWidget::showMinimized);
+
+    connect(maximizeBtn, &QToolButton::clicked, this, [=]() mutable {
+        if (isMaximized()) {
+            showNormal();
+            maximizeBtn->setIcon(QIcon(":/resources/icons/window_maximize.png"));
+        } else {
+            showMaximized();
+            maximizeBtn->setIcon(QIcon(":/resources/icons/window_restore.png"));
+        }
+    });
+
+    connect(closeBtn, &QToolButton::clicked, this, &QWidget::close);
+
+    layout->addWidget(logoLabel);
+    layout->addStretch();
+    layout->addWidget(timeLabel);
+    layout->addSpacing(10);
+
+    QWidget *sysBtns = new QWidget();
+    sysBtns->setLayout(sysBtnLayout);
+    layout->addWidget(sysBtns);
+
+    topBar->setStyleSheet("background-color: #1e1e1e;");
 
     QTimer *timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, [=]() {
@@ -1148,5 +1236,30 @@ void MainWindow::performHealthCheck()
             // ❌ WebSocket 미연결 상태 → 아무 것도 안 함 (setupWebSocketConnections()에서 이미 표시됨)
             qDebug() << "[헬시 체크 스킵] 연결 안 된 카메라:" << camera.ip;
         }
+    }
+}
+
+void MainWindow::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        dragging = true;
+        dragPosition = event->globalPosition().toPoint() - frameGeometry().topLeft();
+        event->accept();
+    }
+}
+
+void MainWindow::mouseMoveEvent(QMouseEvent *event)
+{
+    if (dragging && (event->buttons() & Qt::LeftButton)) {
+        move(event->globalPosition().toPoint() - dragPosition);
+        event->accept();
+    }
+}
+
+void MainWindow::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        dragging = false;
+        event->accept();
     }
 }

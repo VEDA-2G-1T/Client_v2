@@ -41,6 +41,27 @@ LogHistoryDialog::LogHistoryDialog(const QVector<LogEntry> &logs, QWidget *paren
             color: white;
             gridline-color: #444;
         }
+        QTabWidget::pane {
+            border: none;
+            background-color: #2b2b2b;
+        }
+        QTabBar::tab {
+            background-color: #2b2b2b;
+            color: white;
+            padding: 6px 12px;
+            border: 1px solid #444;
+            border-bottom: none;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+        QTabBar::tab:selected {
+            background-color: #1e1e1e;
+            color: #f37321;
+            font-weight: bold;
+        }
+        QTabBar::tab:hover {
+            background-color: #3a3a3a;
+        }
     )");
 }
 
@@ -82,6 +103,23 @@ void LogHistoryDialog::setupUI()
     ppeCheck = new QCheckBox("Detect");
     trespassCheck = new QCheckBox("Trespass");
     fallCheck = new QCheckBox("Fall");
+
+    QString checkboxStyle = R"(
+        QCheckBox {
+            color: white;
+            spacing: 6px;
+        }
+        QCheckBox::indicator {
+            width: 14px;
+            height: 14px;
+        }
+    )";
+
+    totalCheck->setStyleSheet(checkboxStyle);
+    blurCheck->setStyleSheet(checkboxStyle);
+    ppeCheck->setStyleSheet(checkboxStyle);
+    trespassCheck->setStyleSheet(checkboxStyle);
+    fallCheck->setStyleSheet(checkboxStyle);
 
     totalCheck->setChecked(true);
     blurCheck->setChecked(false);

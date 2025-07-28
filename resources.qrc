@@ -14,5 +14,9 @@
         <file>fonts/07HanwhaGothicEL.ttf</file>
         <file>fonts/08HanwhaGothicT.ttf</file>
         <file>icons/brightness_control.png</file>
+        <file>icons/window_close.png</file>
+        <file>icons/window_maximize.png</file>
+        <file>icons/window_minimize.png</file>
+        <file>icons/window_restore.png</file>
     </qresource>
 </RCC>
