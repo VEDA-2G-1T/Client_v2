@@ -88,60 +88,6 @@ QPair<int, int> MainWindow::findEmptyVideoSlot() {
 
     return {-1, -1};
 }
-/*
-void MainWindow::setupTopBar() {
-    topBar = new QWidget();
-    topBar->setFixedHeight(50);
-    QHBoxLayout *layout = new QHBoxLayout(topBar);
-
-    int idB = QFontDatabase::addApplicationFont(":/resources/fonts/01HanwhaB.ttf");
-    int idR = QFontDatabase::addApplicationFont(":/resources/fonts/02HanwhaR.ttf");
-    int idL = QFontDatabase::addApplicationFont(":/resources/fonts/03HanwhaL.ttf");
-    int gidL = QFontDatabase::addApplicationFont(":/resources/fonts/06HanwhaGothicL.ttf");
-
-    QString fontB = QFontDatabase::applicationFontFamilies(idB).at(0);
-    QString fontR = QFontDatabase::applicationFontFamilies(idR).at(0);
-    QString fontL = QFontDatabase::applicationFontFamilies(idL).at(0);
-    QString gfontL = QFontDatabase::applicationFontFamilies(gidL).at(0);
-
-    QLabel *logoLabel = new QLabel("Smart SafetyNet");
-    logoLabel->setFont(QFont(fontB, 20));  // 굵은 타이틀
-    logoLabel->setStyleSheet("color: #f37321;");
-
-    timeLabel = new QLabel();
-    timeLabel->setFont(QFont(gfontL, 10));
-    timeLabel->setStyleSheet("color: white;");
-
-    QPushButton *closeButton = new QPushButton("종료");
-    closeButton->setFixedSize(50, 30);  // 너비 60px, 높이 36px
-    closeButton->setFont(QFont(gfontL, 8));
-    closeButton->setStyleSheet(R"(
-        QPushButton {
-            background-color: #222;
-            color: #f37321;
-            border: 1px solid #444;
-            border-radius: 4px;
-            padding: 4px 10px;
-        }
-    )");
-
-    connect(closeButton, &QPushButton::clicked, this, &QWidget::close);
-
-    layout->addWidget(logoLabel);
-    layout->addStretch();
-    layout->addWidget(timeLabel);
-    layout->addSpacing(10);
-    layout->addWidget(closeButton);
-
-    topBar->setStyleSheet("background-color: #1e1e1e; color: white;");
-
-    QTimer *timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, [=]() {
-        timeLabel->setText(QDateTime::currentDateTime().toString("hh:mm:ss"));
-    });
-    timer->start(1000);
-}
-*/
 
 void MainWindow::setupTopBar() {
     topBar = new QWidget();
@@ -993,11 +939,12 @@ void MainWindow::onSocketMessageReceived(const QString &message)
     else if (type == "new_fall") {
         QString ts = data["timestamp"].toString();
         int count = data["count"].toInt();
+        QString imagePath = data["image_path"].toString();  // ✅ 추가
 
         if (count > 0) {
             QString event = "🚨 낙상 감지";
             QString details = QString("낙상 감지 시각: %1").arg(ts);
-            addLogEntry(camera.name, "Fall", event, "", details, camera.ip, ts);
+            addLogEntry(camera.name, "Fall", event, imagePath, details, camera.ip, ts);  // ✅ new_trespass 방식과 동일
         }
     }
 
@@ -1087,7 +1034,7 @@ void MainWindow::loadInitialLogs()
 {
     logEntries.clear();  // 초기화
 
-    int totalRequests = cameraList.size() * 2;  // PPE + Trespass
+    int totalRequests = cameraList.size() * 3;  // PPE + Trespass
     int *completedCount = new int(0);  // 람다에서 사용 가능하도록 동적 할당
 
     // ✅ std::function으로 정의해야 const lambda 안에서도 호출 가능
@@ -1182,6 +1129,37 @@ void MainWindow::loadInitialLogs()
                 logEntries.append({camera.name, "Trespass", event, ts, imageUrl});
             }
 
+            trySortAndPrint();
+        });
+
+        QString urlFall = QString("https://%1:8443/api/fall").arg(camera.ip);
+        QNetworkRequest reqFall{QUrl(urlFall)};
+        QNetworkReply *replyFall = networkManager->get(reqFall);  // ✅ 반드시 선언 필요
+        replyFall->ignoreSslErrors();
+
+        connect(replyFall, &QNetworkReply::finished, this, [=]() {
+            replyFall->deleteLater();
+            if (replyFall->error() != QNetworkReply::NoError) return trySortAndPrint();
+
+            QJsonDocument doc = QJsonDocument::fromJson(replyFall->readAll());
+            if (!doc.isObject()) return trySortAndPrint();
+
+            QJsonArray arr = doc["fall"].toArray();
+            for (const QJsonValue &val : arr) {
+                QJsonObject obj = val.toObject();
+                QString ts = obj["timestamp"].toString();
+                int count = obj["count"].toInt();
+                QString imgPath = obj["image_path"].toString();
+
+                QString event = QString("🚨 낙상 감지").arg(count);
+                QString imageUrl;
+                if (!imgPath.isEmpty()) {
+                    QString cleanPath = imgPath.startsWith("../") ? imgPath.mid(3) : imgPath;
+                    imageUrl = QString("http://%1/%2").arg(camera.ip, cleanPath);
+                }
+
+                logEntries.append({camera.name, "Fall", event, ts, imageUrl});
+            }
             trySortAndPrint();
         });
 
