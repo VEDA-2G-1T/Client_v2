@@ -120,7 +120,6 @@ void LogHistoryDialog::setupUI()
     QVBoxLayout *filterLayout = new QVBoxLayout();
 
     totalCheck = new QCheckBox("Total");
-    blurCheck = new QCheckBox("Blur");
     ppeCheck = new QCheckBox("Detect");
     trespassCheck = new QCheckBox("Trespass");
     fallCheck = new QCheckBox("Fall");
@@ -136,8 +135,14 @@ void LogHistoryDialog::setupUI()
         }
     )";
 
+    QFont checkboxFont(gfontR, 12);  // 기존 10 → 12로 키움
+
+    totalCheck->setFont(checkboxFont);
+    ppeCheck->setFont(checkboxFont);
+    trespassCheck->setFont(checkboxFont);
+    fallCheck->setFont(checkboxFont);
+
     totalCheck->setStyleSheet(checkboxStyle);
-    blurCheck->setStyleSheet(checkboxStyle);
     ppeCheck->setStyleSheet(checkboxStyle);
     trespassCheck->setStyleSheet(checkboxStyle);
     fallCheck->setStyleSheet(checkboxStyle);
@@ -145,7 +150,6 @@ void LogHistoryDialog::setupUI()
     totalCheck->setChecked(true);
 
     filterLayout->addWidget(totalCheck);
-    filterLayout->addWidget(blurCheck);
     filterLayout->addWidget(ppeCheck);
     filterLayout->addWidget(trespassCheck);
     filterLayout->addWidget(fallCheck);
@@ -160,11 +164,10 @@ void LogHistoryDialog::setupUI()
         QTimer::singleShot(0, this, [=]() { applyFilter(); });
     };
 
-    connect(totalCheck,     &QCheckBox::checkStateChanged, this, delayedApplyFilter);
-    connect(blurCheck,      &QCheckBox::checkStateChanged, this, delayedApplyFilter);
-    connect(ppeCheck,       &QCheckBox::checkStateChanged, this, delayedApplyFilter);
-    connect(trespassCheck,  &QCheckBox::checkStateChanged, this, delayedApplyFilter);
-    connect(fallCheck,      &QCheckBox::checkStateChanged, this, delayedApplyFilter);
+    connect(totalCheck,    &QCheckBox::checkStateChanged, this, delayedApplyFilter);
+    connect(ppeCheck,      &QCheckBox::checkStateChanged, this, delayedApplyFilter);
+    connect(trespassCheck, &QCheckBox::checkStateChanged, this, delayedApplyFilter);
+    connect(fallCheck,     &QCheckBox::checkStateChanged, this, delayedApplyFilter);
 
     tabWidget = new QTabWidget(this);
     connect(tabWidget, &QTabWidget::currentChanged, this, &LogHistoryDialog::applyFilter);
@@ -175,7 +178,6 @@ void LogHistoryDialog::setupUI()
     previewLayout->setContentsMargins(10, 10, 10, 10);
     previewLayout->setSpacing(10);
 
-    // 중앙에 프리뷰 이미지
     previewLayout->addStretch(1);
 
     imagePreviewLabel = new QLabel("Select Event Log");
@@ -185,9 +187,7 @@ void LogHistoryDialog::setupUI()
     imagePreviewLabel->setStyleSheet("background-color: #1e1e1e; border: 1px solid #555;");
     previewLayout->addWidget(imagePreviewLabel, 0, Qt::AlignHCenter);
 
-    // previewLayout->addStretch(1);
-
-    // 🔹 샤프닝 슬라이더
+    // 샤프닝 슬라이더
     QLabel *sharpLabel = new QLabel("샤프닝: 0");
     sharpLabel->setStyleSheet("color: #f37321; font-size: 11px;");
     sharpLabel->setAlignment(Qt::AlignCenter);
@@ -199,7 +199,7 @@ void LogHistoryDialog::setupUI()
     sharpSlider->setStyleSheet("QSlider { background: #1e1e1e; }");
     previewLayout->addWidget(sharpSlider);
 
-    // 🔹 대비 슬라이더
+    // 대비 슬라이더
     QLabel *contrastLabel = new QLabel("대비: 0");
     contrastLabel->setStyleSheet("color: #f37321; font-size: 11px;");
     contrastLabel->setAlignment(Qt::AlignCenter);
@@ -213,7 +213,6 @@ void LogHistoryDialog::setupUI()
 
     previewLayout->addStretch(1);
 
-    // ✅ 슬라이더 값 변경 시 동시 적용
     auto applyEnhancements = [=]() {
         if (!originalPreviewPix.isNull()) {
             int sharpVal = sharpSlider->value();
@@ -243,11 +242,9 @@ void LogHistoryDialog::setupUI()
 
     outerLayout->addLayout(contentLayout);
 
-    // Total 체크 동기화
-    // ✅ Total ↔ 개별 체크박스 동기화
+    // Total ↔ 개별 체크박스 동기화
     connect(totalCheck, &QCheckBox::checkStateChanged, this, [=](int state) {
         if (state == Qt::Checked) {
-            blurCheck->blockSignals(true); blurCheck->setChecked(false); blurCheck->blockSignals(false);
             ppeCheck->blockSignals(true);  ppeCheck->setChecked(false);  ppeCheck->blockSignals(false);
             trespassCheck->blockSignals(true); trespassCheck->setChecked(false); trespassCheck->blockSignals(false);
             fallCheck->blockSignals(true); fallCheck->setChecked(false); fallCheck->blockSignals(false);
@@ -256,20 +253,21 @@ void LogHistoryDialog::setupUI()
     });
 
     auto updateTotalState = [=]() {
-        bool allChecked = blurCheck->isChecked() && ppeCheck->isChecked() &&
-                          trespassCheck->isChecked() && fallCheck->isChecked();
+        bool allChecked = ppeCheck->isChecked() &&
+                          trespassCheck->isChecked() &&
+                          fallCheck->isChecked();
 
         if (allChecked) {
             totalCheck->blockSignals(true);
             totalCheck->setChecked(true);
             totalCheck->blockSignals(false);
 
-            blurCheck->blockSignals(true); blurCheck->setChecked(false); blurCheck->blockSignals(false);
             ppeCheck->blockSignals(true);  ppeCheck->setChecked(false);  ppeCheck->blockSignals(false);
             trespassCheck->blockSignals(true); trespassCheck->setChecked(false); trespassCheck->blockSignals(false);
             fallCheck->blockSignals(true); fallCheck->setChecked(false); fallCheck->blockSignals(false);
-        } else if (blurCheck->isChecked() || ppeCheck->isChecked() ||
-                   trespassCheck->isChecked() || fallCheck->isChecked()) {
+        } else if (ppeCheck->isChecked() ||
+                   trespassCheck->isChecked() ||
+                   fallCheck->isChecked()) {
             totalCheck->blockSignals(true);
             totalCheck->setChecked(false);
             totalCheck->blockSignals(false);
@@ -277,11 +275,9 @@ void LogHistoryDialog::setupUI()
         applyFilter();
     };
 
-    connect(blurCheck,     &QCheckBox::checkStateChanged, this, updateTotalState);
     connect(ppeCheck,      &QCheckBox::checkStateChanged, this, updateTotalState);
     connect(trespassCheck, &QCheckBox::checkStateChanged, this, updateTotalState);
     connect(fallCheck,     &QCheckBox::checkStateChanged, this, updateTotalState);
-
 }
 
 void LogHistoryDialog::mousePressEvent(QMouseEvent *event) {
@@ -330,7 +326,25 @@ void LogHistoryDialog::populateTabs()
         table->setEditTriggers(QAbstractItemView::NoEditTriggers);
         table->setSelectionBehavior(QAbstractItemView::SelectRows);
         table->setSelectionMode(QAbstractItemView::SingleSelection);
-        table->setShowGrid(false);
+
+        table->setShowGrid(true);
+        table->setStyleSheet(R"(
+            QTableWidget {
+                background-color: #1e1e1e;
+                color: white;
+                gridline-color: #666;        /* 테두리 색상 */
+                border: 1px solid #888;      /* 전체 테두리 */
+            }
+            QTableWidget::item {
+                border: none;      /* 셀 테두리 */
+                padding: 4px;
+            }
+            QHeaderView::section {
+                background-color: #2b2b2b;
+                color: white;
+                border: none;      /* 헤더 테두리 */
+            }
+        )");
 
         connect(table, &QTableWidget::cellClicked, this, &LogHistoryDialog::handleRowClick);
         tabWidget->addTab(table, name);
@@ -344,7 +358,6 @@ void LogHistoryDialog::applyFilter()
     QString selectedCamera = tabWidget->tabText(tabWidget->currentIndex());
 
     bool showTotal     = totalCheck->isChecked();
-    bool showBlur      = blurCheck->isChecked();
     bool showPPE       = ppeCheck->isChecked();
     bool showTrespass  = trespassCheck->isChecked();
     bool showFall      = fallCheck->isChecked();
@@ -364,7 +377,6 @@ void LogHistoryDialog::applyFilter()
             continue;
 
         if (!showTotal) {
-            if (entry.function == "Blur" && !showBlur) continue;
             if (entry.function == "PPE" && !showPPE) continue;
             if (entry.function == "Trespass" && !showTrespass) continue;
             if (entry.function == "Fall" && !showFall) continue;
@@ -402,7 +414,7 @@ void LogHistoryDialog::handleRowClick(int row, int)
     if (url.isEmpty()) {
         imagePreviewLabel->setText("❌ 이미지 없음");
         imagePreviewLabel->setPixmap(QPixmap());
-        originalPreviewPix = QPixmap();  // ✅ 원본 초기화
+        originalPreviewPix = QPixmap();
         return;
     }
 
@@ -414,16 +426,14 @@ void LogHistoryDialog::handleRowClick(int row, int)
         pix.loadFromData(reply->readAll());
 
         if (!pix.isNull()) {
-            // ✅ 원본 저장
             originalPreviewPix = pix;
-
             imagePreviewLabel->setPixmap(pix.scaled(320, 240,
                                                     Qt::KeepAspectRatio,
                                                     Qt::SmoothTransformation));
         } else {
             imagePreviewLabel->setText("❌ 이미지 로드 실패");
             imagePreviewLabel->setPixmap(QPixmap());
-            originalPreviewPix = QPixmap();  // ✅ 실패 시 초기화
+            originalPreviewPix = QPixmap();
         }
 
         reply->deleteLater();

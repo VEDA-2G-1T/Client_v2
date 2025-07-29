@@ -621,6 +621,7 @@ void MainWindow::sendModeChangeRequest(const QString &mode, const CameraInfo &ca
     qDebug() << "[WebSocket] 모드 변경 메시지 전송됨:" << message;
 }
 
+/*
 void MainWindow::setupWebSocketConnections()
 {
     for (const CameraInfo &camera : cameraList) {
@@ -734,6 +735,114 @@ void MainWindow::setupWebSocketConnections()
                 }
             });
         });
+    }
+}
+*/
+
+void MainWindow::setupWebSocketConnections()
+{
+    for (const CameraInfo &camera : cameraList) {
+        // 이미 연결된 경우 생략
+        if (socketMap.contains(camera.ip)) {
+            QWebSocket *existing = socketMap[camera.ip];
+            if (existing && existing->state() == QAbstractSocket::ConnectedState) {
+                continue;
+            }
+        }
+
+        QWebSocket *socket = new QWebSocket();
+
+        connect(socket, &QWebSocket::sslErrors, this, [socket](const QList<QSslError> &) {
+            socket->ignoreSslErrors();
+        });
+
+        connect(socket, &QWebSocket::connected, this, [=]() {
+            qDebug() << "[WebSocket 연결 성공]" << camera.ip;
+            socketMap[camera.ip] = socket;  // ✅ 연결 성공 후에 등록
+
+            for (int i = 0; i < listLayout->count(); ++i) {
+                if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                    if (w->getCameraInfo().ip == camera.ip) {
+                        // ✅ 연결 상태 표시
+                        w->updateHealthStatus("🔗 연결됨", "lightblue");
+
+                        // ✅ 재연결 시 무조건 Raw 모드로 초기화
+                        if (QComboBox *combo = w->findChild<QComboBox*>()) {
+                            combo->setCurrentText("Raw");
+                        }
+                        sendModeChangeRequest("raw", camera);
+                        qDebug() << "[모드 초기화] 재연결 시 Raw 모드 적용됨:" << camera.ip;
+
+                        break;
+                    }
+                }
+            }
+
+            // ✅ 최초 헬시체크 요청 자동 전송
+            QJsonObject req;
+            req["type"] = "request_stm_status";
+            QJsonDocument doc(req);
+            socket->sendTextMessage(doc.toJson(QJsonDocument::Compact));
+
+            qDebug() << "[헬시체크 자동 요청]" << camera.ip;
+
+            // ⏳ 헬시체크 상태 대기 UI 반영
+            for (int i = 0; i < listLayout->count(); ++i) {
+                if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                    if (w->getCameraInfo().ip == camera.ip) {
+                        w->updateHealthStatus("⏳ 확인 중", "gray");
+                        break;
+                    }
+                }
+            }
+
+            // ⏱️ 5초 내 응답 없으면 경고 표시
+            QTimer::singleShot(5000, this, [=]() {
+                if (!healthCheckResponded.contains(camera.ip)) {
+                    for (int i = 0; i < listLayout->count(); ++i) {
+                        if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                            if (w->getCameraInfo().ip == camera.ip) {
+                                w->updateHealthStatus("⚠️ 센서 상태를 점검하세요", "#f37321");
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
+        connect(socket, &QWebSocket::disconnected, this, [=]() {
+            qDebug() << "[WebSocket 연결 해제]" << camera.ip;
+            socket->deleteLater();
+            socketMap.remove(camera.ip);
+
+            for (int i = 0; i < listLayout->count(); ++i) {
+                if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                    if (w->getCameraInfo().ip == camera.ip) {
+                        w->updateHealthStatus("❌ 미연결", "orange");
+                        break;
+                    }
+                }
+            }
+        });
+
+        connect(socket, &QWebSocket::errorOccurred, this, [=](QAbstractSocket::SocketError error) {
+            qWarning() << "[WebSocket 에러]" << camera.ip << error;
+            for (int i = 0; i < listLayout->count(); ++i) {
+                if (CameraItemWidget *w = qobject_cast<CameraItemWidget *>(listLayout->itemAt(i)->widget())) {
+                    if (w->getCameraInfo().ip == camera.ip) {
+                        w->updateHealthStatus("❌ 연결 실패", "red");
+                        break;
+                    }
+                }
+            }
+        });
+
+        connect(socket, &QWebSocket::textMessageReceived,
+                this, &MainWindow::onSocketMessageReceived);
+
+        QString wsUrl = QString("wss://%1:8443/ws").arg(camera.ip);
+        socket->open(QUrl(wsUrl));  // ✅ 연결 시도
     }
 }
 
@@ -1038,7 +1147,7 @@ void MainWindow::loadInitialLogs()
 {
     logEntries.clear();  // 초기화
 
-    int totalRequests = cameraList.size() * 3;  // PPE + Trespass
+    int totalRequests = cameraList.size() * 3;  // Detect + Trespass + Fall
     int *completedCount = new int(0);  // 람다에서 사용 가능하도록 동적 할당
 
     // ✅ std::function으로 정의해야 const lambda 안에서도 호출 가능
@@ -1166,7 +1275,6 @@ void MainWindow::loadInitialLogs()
             }
             trySortAndPrint();
         });
-
     }
 }
 
