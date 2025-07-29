@@ -19,5 +19,6 @@
         <file>icons/window_minimize.png</file>
         <file>icons/window_restore.png</file>
         <file>icons/dropdown.png</file>
+        <file>icons/app_icon.ico</file>
     </qresource>
 </RCC>

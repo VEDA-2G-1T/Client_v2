@@ -40,4 +40,5 @@
 - v0.0.31 : Image Enhancement 기능 UI 개선  
 - v0.0.32 : loghistorydialog.cpp 체크박스 동작 방식 버그 수정  
 - v0.0.33 : 카메라 재연결시 raw 기능 강제 활성화 기능 추가, Blur 필터 기능 제거
-- v1.0 확정
+- v1.0 확정  
+- v1.1 : .exe 파일 아이콘 추가

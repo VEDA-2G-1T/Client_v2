@@ -100,3 +100,9 @@ install(TARGETS QtClientSSN_new-ui
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(QtClientSSN_new-ui)
 endif()
+
+if(WIN32)
+    set(APP_ICON_RESOURCE_WINDOWS "${CMAKE_CURRENT_SOURCE_DIR}/appicon.rc")
+    target_sources(QtClientSSN_new-ui PRIVATE ${APP_ICON_RESOURCE_WINDOWS})
+endif()
+
