@@ -37,4 +37,5 @@
   
 [25-07-29]
 - v0.0.30 : Event Log History, 썸네일 팝업창 Image Enhancement 기능 및 슬라이더 UI 추가  
-- v0.0.31 : Image Enhancement 기능 UI 개선
+- v0.0.31 : Image Enhancement 기능 UI 개선  
+- v0.0.32 : loghistorydialog.cpp 체크박스 동작 방식 버그 수정

@@ -244,14 +244,44 @@ void LogHistoryDialog::setupUI()
     outerLayout->addLayout(contentLayout);
 
     // Total 체크 동기화
+    // ✅ Total ↔ 개별 체크박스 동기화
     connect(totalCheck, &QCheckBox::checkStateChanged, this, [=](int state) {
         if (state == Qt::Checked) {
-            blurCheck->setChecked(false);
-            ppeCheck->setChecked(false);
-            trespassCheck->setChecked(false);
-            fallCheck->setChecked(false);
+            blurCheck->blockSignals(true); blurCheck->setChecked(false); blurCheck->blockSignals(false);
+            ppeCheck->blockSignals(true);  ppeCheck->setChecked(false);  ppeCheck->blockSignals(false);
+            trespassCheck->blockSignals(true); trespassCheck->setChecked(false); trespassCheck->blockSignals(false);
+            fallCheck->blockSignals(true); fallCheck->setChecked(false); fallCheck->blockSignals(false);
         }
+        applyFilter();
     });
+
+    auto updateTotalState = [=]() {
+        bool allChecked = blurCheck->isChecked() && ppeCheck->isChecked() &&
+                          trespassCheck->isChecked() && fallCheck->isChecked();
+
+        if (allChecked) {
+            totalCheck->blockSignals(true);
+            totalCheck->setChecked(true);
+            totalCheck->blockSignals(false);
+
+            blurCheck->blockSignals(true); blurCheck->setChecked(false); blurCheck->blockSignals(false);
+            ppeCheck->blockSignals(true);  ppeCheck->setChecked(false);  ppeCheck->blockSignals(false);
+            trespassCheck->blockSignals(true); trespassCheck->setChecked(false); trespassCheck->blockSignals(false);
+            fallCheck->blockSignals(true); fallCheck->setChecked(false); fallCheck->blockSignals(false);
+        } else if (blurCheck->isChecked() || ppeCheck->isChecked() ||
+                   trespassCheck->isChecked() || fallCheck->isChecked()) {
+            totalCheck->blockSignals(true);
+            totalCheck->setChecked(false);
+            totalCheck->blockSignals(false);
+        }
+        applyFilter();
+    };
+
+    connect(blurCheck,     &QCheckBox::checkStateChanged, this, updateTotalState);
+    connect(ppeCheck,      &QCheckBox::checkStateChanged, this, updateTotalState);
+    connect(trespassCheck, &QCheckBox::checkStateChanged, this, updateTotalState);
+    connect(fallCheck,     &QCheckBox::checkStateChanged, this, updateTotalState);
+
 }
 
 void LogHistoryDialog::mousePressEvent(QMouseEvent *event) {
