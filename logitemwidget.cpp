@@ -11,6 +11,7 @@
 #include <QVBoxLayout>
 #include <QSlider>
 #include <QLabel>
+#include <QHBoxLayout>
 
 LogItemWidget::LogItemWidget(const QString &camera,
                              const QString &event,
@@ -70,6 +71,8 @@ LogItemWidget::LogItemWidget(const QString &camera,
                     QDialog *popup = new QDialog(this);
                     popup->setWindowTitle("이미지 미리보기");
                     popup->setStyleSheet("background-color: black;");
+                    popup->resize(320, 240);
+
                     QVBoxLayout *popupLayout = new QVBoxLayout(popup);
 
                     QLabel *imgLabel = new QLabel();
@@ -78,35 +81,55 @@ LogItemWidget::LogItemWidget(const QString &camera,
 
                     // ✅ 원본 이미지 저장
                     QPixmap originalPix = pix;
-                    imgLabel->setPixmap(originalPix.scaled(800, 600,
+                    imgLabel->setPixmap(originalPix.scaled(320, 240,
                                                            Qt::KeepAspectRatio,
                                                            Qt::SmoothTransformation));
 
-                    // ✅ 슬라이더 추가
-                    QLabel *sliderLabel = new QLabel("강도: 50%");
-                    sliderLabel->setStyleSheet("color: white;");
-                    sliderLabel->setAlignment(Qt::AlignCenter);
+                    // 🔹 샤프닝 슬라이더
+                    QLabel *sharpLabel = new QLabel("샤프닝: 0");
+                    sharpLabel->setStyleSheet("color: white;");
+                    sharpLabel->setAlignment(Qt::AlignCenter);
+                    popupLayout->addWidget(sharpLabel);
 
-                    QSlider *enhanceSlider = new QSlider(Qt::Horizontal);
-                    enhanceSlider->setRange(0, 100);
-                    enhanceSlider->setValue(50);
-                    enhanceSlider->setStyleSheet("QSlider { background: #333; }");
+                    QSlider *sharpSlider = new QSlider(Qt::Horizontal);
+                    sharpSlider->setRange(-100, 100);
+                    sharpSlider->setValue(0);
+                    sharpSlider->setStyleSheet("QSlider { background: #333; }");
+                    popupLayout->addWidget(sharpSlider);
 
-                    popupLayout->addWidget(sliderLabel);
-                    popupLayout->addWidget(enhanceSlider);
+                    // 🔹 대비 슬라이더
+                    QLabel *contrastLabel = new QLabel("대비: 0");
+                    contrastLabel->setStyleSheet("color: white;");
+                    contrastLabel->setAlignment(Qt::AlignCenter);
+                    popupLayout->addWidget(contrastLabel);
 
-                    // 슬라이더 값 변경 시 항상 원본 기준으로 보정
-                    connect(enhanceSlider, &QSlider::valueChanged, popup, [=](int val) {
-                        sliderLabel->setText(QString("강도: %1%").arg(val));
+                    QSlider *contrastSlider = new QSlider(Qt::Horizontal);
+                    contrastSlider->setRange(-100, 100);
+                    contrastSlider->setValue(0);
+                    contrastSlider->setStyleSheet("QSlider { background: #333; }");
+                    popupLayout->addWidget(contrastSlider);
+
+                    // ✅ 슬라이더 값 변경 시 동시 적용
+                    auto applyEnhancements = [=]() {
                         if (!originalPix.isNull()) {
-                            QPixmap enhanced = ImageEnhancer::enhanceSharpness(originalPix, val);
-                            imgLabel->setPixmap(enhanced.scaled(800, 600,
-                                                                Qt::KeepAspectRatio,
-                                                                Qt::SmoothTransformation));
-                        }
-                    });
+                            int sharpVal = sharpSlider->value();
+                            int contrastVal = contrastSlider->value();
 
-                    popup->resize(820, 700);
+                            QPixmap processed = ImageEnhancer::enhanceSharpness(originalPix, sharpVal);
+                            processed = ImageEnhancer::enhanceCLAHE(processed, contrastVal);
+
+                            sharpLabel->setText(QString("샤프닝: %1").arg(sharpVal));
+                            contrastLabel->setText(QString("대비: %1").arg(contrastVal));
+
+                            imgLabel->setPixmap(processed.scaled(320, 240,
+                                                                 Qt::KeepAspectRatio,
+                                                                 Qt::SmoothTransformation));
+                        }
+                    };
+
+                    connect(sharpSlider, &QSlider::valueChanged, popup, applyEnhancements);
+                    connect(contrastSlider, &QSlider::valueChanged, popup, applyEnhancements);
+
                     popup->exec();
                 });
 

@@ -6,7 +6,7 @@
 class ImageEnhancer {
 public:
     static QPixmap enhanceSharpness(const QPixmap &pixmap, int level);
-    static QPixmap enhanceCLAHE(const QPixmap &pixmap);
+    static QPixmap enhanceCLAHE(const QPixmap &pixmap, int clipLimit = 2);
 };
 
 #endif // IMAGEENHANCER_H
