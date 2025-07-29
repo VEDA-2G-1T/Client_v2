@@ -34,4 +34,7 @@
 - v0.0.27 : 다이얼로그 창 UI 세부 수정  
 - v0.0.28 : 간단한 Image Enhancement 기능 구현  
 - v0.0.29 : Image Enhancement 기능 고도화 (언샤프 마스크(unsharp masking) 기능, 슬라이더 UI)  
+  
+[25-07-29]
 - v0.0.30 : Event Log History, 썸네일 팝업창 Image Enhancement 기능 및 슬라이더 UI 추가  
+- v0.0.31 : Image Enhancement 기능 UI 개선

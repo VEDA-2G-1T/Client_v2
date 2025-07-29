@@ -37,24 +37,50 @@ CameraItemWidget::CameraItemWidget(const CameraInfo &info, QWidget *parent)
     connect(removeButton, &QPushButton::clicked, this, &CameraItemWidget::onRemoveClicked);
 
     // ✅ 모드 드롭다운
+    // ✅ 모드 드롭다운
     comboBox = new QComboBox();
     comboBox->addItems({"Raw", "Blur", "Detect", "Trespass", "Fall"});
     comboBox->setFont(comboFont);
     comboBox->setFixedWidth(100);
+
+    // ✅ 다크모드 스타일시트 적용
     comboBox->setStyleSheet(R"(
-        QComboBox {
-            background-color: #404040;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 4px;
-            padding: 2px;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #2b2b2b;
-            color: white;
-            selection-background-color: #505050;
-        }
-    )");
+    QComboBox {
+        background-color: #404040;
+        color: white;
+        border: 1px solid #555;
+        border-radius: 4px;
+        padding: 2px 8px 2px 8px;
+        min-height: 22px;
+    }
+    QComboBox::drop-down {
+        subcontrol-origin: padding;
+        subcontrol-position: top right;
+        width: 20px;
+        border-left: 1px solid #555;
+        background-color: #404040;
+    }
+    QComboBox::down-arrow {
+        image: url(:/resources/icons/dropdown.png);
+        width: 12px;
+        height: 12px;
+    }
+    QComboBox QAbstractItemView {
+        background-color: #2b2b2b;
+        border: 1px solid #555;
+        selection-background-color: #505050;
+        selection-color: #f37321;
+        outline: none;
+    }
+    QComboBox QAbstractItemView::item {
+        min-height: 20px;
+        padding-left: 6px;
+    }
+)");
+
+    comboBox->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    comboBox->setMaxVisibleItems(5);   // ✅ 한 번에 보여줄 최대 아이템 수
+
 
     connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &CameraItemWidget::onModeChanged);

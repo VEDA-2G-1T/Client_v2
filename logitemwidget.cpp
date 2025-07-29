@@ -87,26 +87,26 @@ LogItemWidget::LogItemWidget(const QString &camera,
 
                     // 🔹 샤프닝 슬라이더
                     QLabel *sharpLabel = new QLabel("샤프닝: 0");
-                    sharpLabel->setStyleSheet("color: white;");
+                    sharpLabel->setStyleSheet("color: #f37321; font-size: 11px;");
                     sharpLabel->setAlignment(Qt::AlignCenter);
                     popupLayout->addWidget(sharpLabel);
 
                     QSlider *sharpSlider = new QSlider(Qt::Horizontal);
                     sharpSlider->setRange(-100, 100);
                     sharpSlider->setValue(0);
-                    sharpSlider->setStyleSheet("QSlider { background: #333; }");
+                    sharpSlider->setStyleSheet("QSlider { background: #1e1e1e; }");
                     popupLayout->addWidget(sharpSlider);
 
                     // 🔹 대비 슬라이더
                     QLabel *contrastLabel = new QLabel("대비: 0");
-                    contrastLabel->setStyleSheet("color: white;");
+                    contrastLabel->setStyleSheet("color: #f37321; font-size: 11px;");
                     contrastLabel->setAlignment(Qt::AlignCenter);
                     popupLayout->addWidget(contrastLabel);
 
                     QSlider *contrastSlider = new QSlider(Qt::Horizontal);
                     contrastSlider->setRange(-100, 100);
                     contrastSlider->setValue(0);
-                    contrastSlider->setStyleSheet("QSlider { background: #333; }");
+                    contrastSlider->setStyleSheet("QSlider { background: #1e1e1e; }");
                     popupLayout->addWidget(contrastSlider);
 
                     // ✅ 슬라이더 값 변경 시 동시 적용

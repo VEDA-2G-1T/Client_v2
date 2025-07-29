@@ -22,7 +22,7 @@ LogHistoryDialog::LogHistoryDialog(const QVector<LogEntry> &logs, QWidget *paren
 {
     // ✅ Frameless 적용
     setWindowFlags(Qt::FramelessWindowHint | Qt::Dialog);
-    setFixedSize(1000, 700);
+    setFixedSize(1200, 700);
     setStyleSheet(R"(
         QDialog {
             background-color: #1e1e1e;
@@ -172,39 +172,46 @@ void LogHistoryDialog::setupUI()
     // ✅ 이미지 프리뷰 + 샤프닝 & 대비 슬라이더
     QWidget *previewContainer = new QWidget();
     QVBoxLayout *previewLayout = new QVBoxLayout(previewContainer);
-    previewLayout->setContentsMargins(0, 0, 0, 0);
-    previewLayout->setSpacing(6);
+    previewLayout->setContentsMargins(10, 10, 10, 10);
+    previewLayout->setSpacing(10);
+
+    // 중앙에 프리뷰 이미지
+    previewLayout->addStretch(1);
 
     imagePreviewLabel = new QLabel("Select Event Log");
     imagePreviewLabel->setFont(previewFont);
     imagePreviewLabel->setAlignment(Qt::AlignCenter);
-    imagePreviewLabel->setMinimumWidth(320);
+    imagePreviewLabel->setFixedSize(320, 240);
     imagePreviewLabel->setStyleSheet("background-color: #1e1e1e; border: 1px solid #555;");
-    previewLayout->addWidget(imagePreviewLabel);
+    previewLayout->addWidget(imagePreviewLabel, 0, Qt::AlignHCenter);
+
+    // previewLayout->addStretch(1);
 
     // 🔹 샤프닝 슬라이더
-    QLabel *sharpLabel = new QLabel("샤프닝 강도: 50%");
-    sharpLabel->setStyleSheet("color: white;");
+    QLabel *sharpLabel = new QLabel("샤프닝: 0");
+    sharpLabel->setStyleSheet("color: #f37321; font-size: 11px;");
     sharpLabel->setAlignment(Qt::AlignCenter);
     previewLayout->addWidget(sharpLabel);
 
     QSlider *sharpSlider = new QSlider(Qt::Horizontal);
     sharpSlider->setRange(-100, 100);
     sharpSlider->setValue(0);
-    sharpSlider->setStyleSheet("QSlider { background: #333; }");
+    sharpSlider->setStyleSheet("QSlider { background: #1e1e1e; }");
     previewLayout->addWidget(sharpSlider);
 
     // 🔹 대비 슬라이더
-    QLabel *contrastLabel = new QLabel("대비 강도: 50%");
-    contrastLabel->setStyleSheet("color: white;");
+    QLabel *contrastLabel = new QLabel("대비: 0");
+    contrastLabel->setStyleSheet("color: #f37321; font-size: 11px;");
     contrastLabel->setAlignment(Qt::AlignCenter);
     previewLayout->addWidget(contrastLabel);
 
     QSlider *contrastSlider = new QSlider(Qt::Horizontal);
     contrastSlider->setRange(-100, 100);
     contrastSlider->setValue(0);
-    contrastSlider->setStyleSheet("QSlider { background: #333; }");
+    contrastSlider->setStyleSheet("QSlider { background: #1e1e1e; }");
     previewLayout->addWidget(contrastSlider);
+
+    previewLayout->addStretch(1);
 
     // ✅ 슬라이더 값 변경 시 동시 적용
     auto applyEnhancements = [=]() {
